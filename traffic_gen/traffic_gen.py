@@ -36,6 +36,7 @@ if __name__ == "__main__":
 	parser.add_option("-b", "--bandwidth", dest = "bandwidth", help = "the bandwidth of host link (G/M/K), by default 10G", default = "10G")
 	parser.add_option("-t", "--time", dest = "time", help = "the total run time (s), by default 10", default = "10")
 	parser.add_option("-o", "--output", dest = "output", help = "the output file", default = "tmp_traffic.txt")
+	parser.add_option("-i", "--incast", dest = "incast", help = "add incast or not", default = "0")
 	options,args = parser.parse_args()
 
 	base_t = 2000000000
@@ -69,7 +70,10 @@ if __name__ == "__main__":
 
 	ofile = open(output, "w")
 
-	# generate flows
+	# Store results to outputlater
+	output_flow_lst = []
+
+	# generate non-incast flows
 	avg = customRand.getAvg()
 	avg_inter_arrival = 1/(bandwidth*load/8./avg)*1000000000
 	n_flow_estimate = int(time / avg_inter_arrival * nhost)
@@ -90,9 +94,81 @@ if __name__ == "__main__":
 			size = int(customRand.rand())
 			if size <= 0:
 				size = 1
-			n_flow += 1;
-			ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
+			n_flow += 1
+			#Append flow_tuple (start_time, flow_info)
+			output_flow_lst.append((t * 1e-9,"%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+			#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
 			heapq.heapreplace(host_list, (t + inter_t, src))
+
+	print("without incast: %d" % n_flow)
+
+	#Generate incast
+	if int(options.incast):
+		#incast size
+		avg = 500000
+		#sender_num 
+		sender_num = 8
+		#receiver_num 
+		receiver_num = 1
+		#nhost_num
+		nhost = 16 
+		load = 0.02
+		avg_inter_arrival = 1/(bandwidth*load/ 8./avg)*1000000000
+		t = base_t + avg_inter_arrival
+		#host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(receiver_num)]
+		#heapq.heapify(host_list)
+
+		while t < time + base_t:
+			dst = random.randint(0, nhost-1)
+			src_set = set()
+			while len(src_set) < sender_num:
+				src = random.randint(0, nhost-1)
+				if src != dst:
+					src_set.add(src)
+			
+			size = avg
+			if size <= 0:
+				size = 1
+			for src in src_set:
+				n_flow += 1
+				#Append flow_tuple (start_time, flow_info)
+				output_flow_lst.append((t * 1e-9,"%d %d 3 200 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+				#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
+
+			t += avg_inter_arrival
+
+
+		while len(host_list) > 0:
+			t, dst = host_list[0]
+			inter_t = int(poisson(avg_inter_arrival))
+			src_set = set()
+			while len(src_set) < sender_num:
+				src = random.randint(0, nhost-1)
+				if src != dst:
+					src_set.add(src)
+
+			if t < time + base_t:
+				size = avg
+				if size <= 0:
+					size = 1
+				for src in src_set:
+					n_flow += 1
+					#Append flow_tuple (start_time, flow_info)
+					output_flow_lst.append((t * 1e-9,"%d %d 3 200 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+					#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
+
+			if (t + inter_t > time + base_t):
+				heapq.heappop(host_list)
+			else:
+				heapq.heapreplace(host_list, (t + inter_t, dst))
+
+		
+	print("with incast: %d" % n_flow)
+	#Ascending sort flows according to start_time
+	output_flow_lst = sorted(output_flow_lst, key=lambda tup: tup[0])
+	for flow_tuple in output_flow_lst:
+		ofile.write(flow_tuple[1])
+	
 	ofile.seek(0)
 	ofile.write("%d"%n_flow)
 	ofile.close()
