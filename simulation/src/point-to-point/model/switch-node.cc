@@ -213,8 +213,17 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 			}
 		}
 		else if (m_ccMode == 9){ //ABC
+		 	//TODO(cxyzhao)
 			double tr_t = 1.0; // target rate
+			double yita = 1.0; //eta
+			double delta = 1.0;
+			double u_t = 1.0; // link capacity
+			double x_t = 1.0; //queuing delay
+			double d_t = 1.0; //
+			tr_t = yita * u_t - u_t / delta * std::max(x_t -d_t, 0.0);
+
 			double cr_t = 1.0; // dequeue rate
+
 			double f_t = std::min(0.5 * tr_t / cr_t, 1.0);
 			double tokenLimit = 10; //token limit
 			abc_token = std::min(abc_token + f_t, tokenLimit);
