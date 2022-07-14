@@ -212,6 +212,35 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				p->AddHeader(ppp);
 			}
 		}
+		else if (m_ccMode == 9){ //ABC
+			double tr_t = 1.0; // target rate
+			double cr_t = 1.0; // dequeue rate
+			double f_t = std::min(0.5 * tr_t / cr_t, 1.0);
+			double tokenLimit = 10; //token limit
+			abc_token = std::min(abc_token + f_t, tokenLimit);
+			if (abc_token > 1.0){
+				abc_token -= 1.0;
+ 				//Mark Accelerate
+				PppHeader ppp;
+				Ipv4Header h;
+				p->RemoveHeader(ppp);
+				p->RemoveHeader(h);
+				h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+				p->AddHeader(h);
+				p->AddHeader(ppp);
+			}
+			else{
+				//Mark brake
+				PppHeader ppp;
+				Ipv4Header h;
+				p->RemoveHeader(ppp);
+				p->RemoveHeader(h);
+				h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+				p->AddHeader(h);
+				p->AddHeader(ppp);
+			}
+
+		}
 		//CheckAndSendPfc(inDev, qIndex);
 		CheckAndSendResume(inDev, qIndex);
 	}

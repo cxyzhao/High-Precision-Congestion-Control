@@ -26,6 +26,9 @@ class SwitchNode : public Node{
 	uint64_t m_lastPktTs[pCnt]; // ns
 	double m_u[pCnt];
 
+	// token for ABC
+	double abc_token = 0.0;
+
 protected:
 	bool m_ecnEnabled;
 	uint32_t m_ccMode;

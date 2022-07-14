@@ -318,9 +318,14 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		seqh.SetIntHeader(ch.udp.ih);
-		if (ecnbits)
-			seqh.SetCnp();
-
+		if (m_cc_mode == 9){ // ABC
+			if (ecnbits == 0x2) //brake
+				seqh.SetCnp();
+		}
+		else{
+			if (ecnbits)
+				seqh.SetCnp();
+		}
 		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
 		newp->AddHeader(seqh);
 
@@ -1115,12 +1120,12 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	DataRate packet_size = 8000; //1pkt bps
 	if (cnp){
 	//accele
-	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1 + packet_size / qp->m_rate)));
+	DataRate packet_size = 8000; //1pkt bps
+	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1  - packet_size / qp->m_rate)));
 	}
 	else{
 	//brake
-	DataRate packet_size = 8000; //1pkt bps
-	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1  - packet_size / qp->m_rate)));
+	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1 + packet_size / qp->m_rate)));
 	}
 
 }
