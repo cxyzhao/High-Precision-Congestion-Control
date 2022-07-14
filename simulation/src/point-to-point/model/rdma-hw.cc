@@ -431,6 +431,9 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 		HandleAckDctcp(qp, p, ch);
 	}else if (m_cc_mode == 10){
 		HandleAckHpPint(qp, p, ch);
+	}else if (m_cc_mode == 9){
+		//ABC
+		HandleAckAbc(qp, p, ch);
 	}
 	// ACK may advance the on-the-fly window, allowing more packets to send
 	dev->TriggerTransmit();
@@ -1101,6 +1104,25 @@ void RdmaHw::UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader
                                qp->hpccPint.m_lastUpdateSeq = next_seq; //+ rand() % 2 * m_mtu;
                }
        }
+}
+
+/**********************
+ * ABC
+ *********************/
+void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch){
+	uint32_t ack_seq = ch.ack.seq;
+	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
+	DataRate packet_size = 8000; //1pkt bps
+	if (cnp){
+	//accele
+	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1 + packet_size / qp->m_rate)));
+	}
+	else{
+	//brake
+	DataRate packet_size = 8000; //1pkt bps
+	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1  - packet_size / qp->m_rate)));
+	}
+
 }
 
 }
