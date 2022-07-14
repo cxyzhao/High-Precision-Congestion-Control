@@ -107,13 +107,15 @@ if __name__ == "__main__":
 		#incast size
 		avg = 500000
 		#sender_num 
-		sender_num = 8
+		sender_num = 50
 		#receiver_num 
 		receiver_num = 1
 		#nhost_num
-		nhost = 16 
+		nhost = 64 
 		load = 0.02
-		avg_inter_arrival = 1/(bandwidth*load/ 8./avg)*1000000000
+		#core_link_num
+		core_link_num = 32
+		avg_inter_arrival = 1/(bandwidth* core_link_num *load/ 8./ (avg* sender_num ))*1000000000
 		t = base_t + avg_inter_arrival
 		#host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(receiver_num)]
 		#heapq.heapify(host_list)
@@ -125,7 +127,6 @@ if __name__ == "__main__":
 				src = random.randint(0, nhost-1)
 				if src != dst:
 					src_set.add(src)
-			
 			size = avg
 			if size <= 0:
 				size = 1
@@ -136,32 +137,6 @@ if __name__ == "__main__":
 				#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
 
 			t += avg_inter_arrival
-
-
-		while len(host_list) > 0:
-			t, dst = host_list[0]
-			inter_t = int(poisson(avg_inter_arrival))
-			src_set = set()
-			while len(src_set) < sender_num:
-				src = random.randint(0, nhost-1)
-				if src != dst:
-					src_set.add(src)
-
-			if t < time + base_t:
-				size = avg
-				if size <= 0:
-					size = 1
-				for src in src_set:
-					n_flow += 1
-					#Append flow_tuple (start_time, flow_info)
-					output_flow_lst.append((t * 1e-9,"%d %d 3 200 %d %.9f\n"%(src, dst, size, t * 1e-9)))
-					#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
-
-			if (t + inter_t > time + base_t):
-				heapq.heappop(host_list)
-			else:
-				heapq.heapreplace(host_list, (t + inter_t, dst))
-
 		
 	print("with incast: %d" % n_flow)
 	#Ascending sort flows according to start_time
