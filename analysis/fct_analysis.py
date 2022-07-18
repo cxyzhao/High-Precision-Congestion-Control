@@ -23,6 +23,9 @@ if __name__=="__main__":
 	CCs = [
 		#'hpccPint95ai50log1.05p1.000',
 		'hp95ai80',
+		'dcqcn',
+		'timely',
+		'dctcp'
 		
 		#'dctcp'
 	]
@@ -59,9 +62,11 @@ if __name__=="__main__":
 			res[i/step].append(get_pctl(fct, 0.95)) # 95-pct fct
 			res[i/step].append(get_pctl(fct, 0.99)) # 99-pct fct
 	for item in res:
-		line = "%.3f %d"%(item[0], item[1])
+		#line = "%.3f %d"%(item[0], item[1])
+		line = "%d,"%(item[1])
 		i = 1
 		for cc in CCs:
-			line += "\t%.3f %.3f %.3f"%(item[i+1], item[i+2], item[i+3])
+			#line += "\t%.3f %.3f %.3f"%(item[i+1], item[i+2], item[i+3])
+			line += "%.3f,%.3f,"%(item[i+2], item[i+3])
 			i += 4
 		print line

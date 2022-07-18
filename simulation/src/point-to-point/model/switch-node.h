@@ -26,6 +26,8 @@ class SwitchNode : public Node{
 	uint64_t m_lastPktTs[pCnt]; // ns
 	double m_u[pCnt];
 
+	
+	// Record to calculate De
 	// token for ABC
 	double abc_token = 0.0;
 
