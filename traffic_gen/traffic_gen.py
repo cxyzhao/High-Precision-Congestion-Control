@@ -115,7 +115,7 @@ if __name__ == "__main__":
 		load = 0.02
 		#core_link_num
 		core_link_num = 32
-		avg_inter_arrival = 1/(bandwidth* core_link_num *load/ 8./ (avg* sender_num ))*1000000000
+		avg_inter_arrival = 1/( bandwidth* core_link_num *load/ 8./ (avg* sender_num) )*1000000000
 		t = base_t + avg_inter_arrival
 		#host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(receiver_num)]
 		#heapq.heapify(host_list)

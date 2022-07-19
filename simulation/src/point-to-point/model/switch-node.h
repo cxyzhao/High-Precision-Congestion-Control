@@ -32,8 +32,6 @@ class SwitchNode : public Node{
 	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
 	double dqRate[pCnt]; // dequeue rate
 
-
-
 	// token for ABC
 	double abc_token = 0.0;
 

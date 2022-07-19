@@ -574,14 +574,13 @@ Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp){
 	ipHeader.SetDestination (qp->dip);
 	ipHeader.SetProtocol (0x11);
 	ipHeader.SetPayloadSize (p->GetSize());
-
-	if (m_cc_mode == 9){ //ABC
-		ipHeader.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
-	}
-
 	ipHeader.SetTtl (64);
 	ipHeader.SetTos (0);
 	ipHeader.SetIdentification (qp->m_ipid);
+	// add ECN for ABC
+	if (m_cc_mode == 9){ //ABC
+		ipHeader.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+	}
 	p->AddHeader(ipHeader);
 	// add ppp header
 	PppHeader ppp;
@@ -1138,6 +1137,7 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 		DataRate new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
 		qp->m_rate = std::max(m_minRate, new_rate);	
 	}
+	// printf("%lu %08x %08x %u %u [%u,%u] \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, ch.ack.seq, qp->snd_nxt);
 
 }
 
