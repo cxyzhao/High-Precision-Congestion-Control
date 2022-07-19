@@ -574,6 +574,11 @@ Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp){
 	ipHeader.SetDestination (qp->dip);
 	ipHeader.SetProtocol (0x11);
 	ipHeader.SetPayloadSize (p->GetSize());
+
+	if (m_cc_mode == 9){ //ABC
+		ipHeader.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+	}
+
 	ipHeader.SetTtl (64);
 	ipHeader.SetTos (0);
 	ipHeader.SetIdentification (qp->m_ipid);
@@ -1116,16 +1121,22 @@ void RdmaHw::UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader
  *********************/
 void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch){
 	uint32_t ack_seq = ch.ack.seq;
+
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
-	DataRate packet_size = 8000; //1pkt bps
-	if (cnp){
-	//accele
-	DataRate packet_size = 8000; //1pkt bps
-	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1  - packet_size / qp->m_rate)));
+	double packet_size = 8000; //1pkt bits
+
+	Time rtt(NanoSeconds(Simulator::Now().GetTimeStep() - ch.ack.ih.ts));
+	double cwnd = rtt * qp->m_rate / packet_size;
+
+	if (cnp){//accele
+		cwnd += 1;
+		DataRate new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
+		qp->m_rate = std::max(m_minRate, new_rate);
 	}
-	else{
-	//brake
-	qp->m_rate = std::max(m_minRate, (qp->m_rate * (1 + packet_size / qp->m_rate)));
+	else{//brake
+		cwnd -= 1;
+		DataRate new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
+		qp->m_rate = std::max(m_minRate, new_rate);	
 	}
 
 }

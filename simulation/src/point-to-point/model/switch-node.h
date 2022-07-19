@@ -29,8 +29,9 @@ class SwitchNode : public Node{
 	
 	// Record to calculate dequeue rate
 	uint64_t m_lastUpdateDqRateTs[pCnt]; // ns
-	uint64_t m_DqPktSize[pCnt]; // packet bytes dequeued since last update
-	
+	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
+	double dqRate[pCnt]; // dequeue rate
+
 
 
 	// token for ABC

@@ -200,7 +200,79 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 		m_mmu->RemoveFromIngressAdmission(inDev, qIndex, p->GetSize());
 		m_mmu->RemoveFromEgressAdmission(ifIndex, qIndex, p->GetSize());
 		m_bytes[inDev][ifIndex][qIndex] -= p->GetSize();
-		if (m_ecnEnabled){
+
+		if (m_ccMode == 9){ //ABC
+		 	
+			double tr_t = 1.0; // target rate
+			double yita = 0.95; //eta
+			double delta = 16000.0; //nanoseconds
+			Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+			double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+			double qLen = dev->GetQueue()->GetNBytesTotal();
+			double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
+
+
+			double d_t = 20 * 1000000; // 20ms 
+			tr_t = yita * u_t - u_t / delta * std::max(x_t -d_t, 0.0);
+
+			double cr_t = 1.0; // dequeue rate Bps
+			uint64_t t = Simulator::Now().GetTimeStep();
+			double dt = t - m_lastUpdateDqRateTs[ifIndex];
+			if (dt > 1000000){ // update dqRate per 1ms
+
+				if (m_DqPktSize[ifIndex] == 0){
+					dqRate[ifIndex] = 0.0;
+				}
+				else{
+					dqRate[ifIndex] = m_DqPktSize[ifIndex] / dt / 1000000000; // Bps
+				}
+				m_lastUpdateDqRateTs[ifIndex] = t;
+			}
+			cr_t  = dqRate[ifIndex];
+		
+			double f_t = std::min(0.5 * tr_t / cr_t, 1.0);
+			double tokenLimit = 10; //token limit
+			abc_token = std::min(abc_token + f_t, tokenLimit);
+
+			PppHeader ppp;
+			Ipv4Header h;
+			p->RemoveHeader(ppp);
+			p->RemoveHeader(h);
+			
+			if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
+
+				h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+				p->AddHeader(h);
+				p->AddHeader(ppp);
+			
+			}
+			else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
+				if (abc_token > 1.0){
+					abc_token -= 1.0;
+					//Mark Accelerate
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+				}
+				else{
+					//Mark brake
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+				}
+
+			}
+
+		}
+		else if (m_ecnEnabled){
 			bool egressCongested = m_mmu->ShouldSendCN(ifIndex, qIndex);
 			if (egressCongested){
 				PppHeader ppp;
@@ -212,44 +284,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				p->AddHeader(ppp);
 			}
 		}
-		else if (m_ccMode == 9){ //ABC
-		 	//TODO(cxyzhao)
-			double tr_t = 1.0; // target rate
-			double yita = 1.0; //eta
-			double delta = 1.0;
-			double u_t = 1.0; // link capacity
-			double x_t = 1.0; //queuing delay
-			double d_t = 1.0; //
-			tr_t = yita * u_t - u_t / delta * std::max(x_t -d_t, 0.0);
 
-			double cr_t = 1.0; // dequeue rate
-
-			double f_t = std::min(0.5 * tr_t / cr_t, 1.0);
-			double tokenLimit = 10; //token limit
-			abc_token = std::min(abc_token + f_t, tokenLimit);
-			if (abc_token > 1.0){
-				abc_token -= 1.0;
- 				//Mark Accelerate
-				PppHeader ppp;
-				Ipv4Header h;
-				p->RemoveHeader(ppp);
-				p->RemoveHeader(h);
-				h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
-				p->AddHeader(h);
-				p->AddHeader(ppp);
-			}
-			else{
-				//Mark brake
-				PppHeader ppp;
-				Ipv4Header h;
-				p->RemoveHeader(ppp);
-				p->RemoveHeader(h);
-				h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-				p->AddHeader(h);
-				p->AddHeader(ppp);
-			}
-
-		}
 		//CheckAndSendPfc(inDev, qIndex);
 		CheckAndSendResume(inDev, qIndex);
 	}
@@ -340,6 +375,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 	m_txBytes[ifIndex] += p->GetSize();
 	m_lastPktSize[ifIndex] = p->GetSize();
 	m_lastPktTs[ifIndex] = Simulator::Now().GetTimeStep();
+	m_DqPktSize[ifIndex] += p->GetSize();
 }
 
 int SwitchNode::logres_shift(int b, int l){
