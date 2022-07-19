@@ -1124,20 +1124,31 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
 	double packet_size = 8000; //1pkt bits
 
-	Time rtt(NanoSeconds(Simulator::Now().GetTimeStep() - ch.ack.ih.ts));
-	double cwnd = rtt * qp->m_rate / packet_size;
+	uint64_t old_rate = qp->m_rate.GetBitRate();
+//	Time rtt(NanoSeconds(Simulator::Now().GetTimeStep() - ch.ack.ih.ts));
 
-	if (cnp){//accele
-		cwnd += 1;
-		DataRate new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
+	Time rtt(NanoSeconds(8320));
+
+
+	double cwnd =   qp->m_rate.GetBitRate () * rtt.GetSeconds() / packet_size;
+
+	DataRate new_rate;
+	if (cnp){//brake
+		cwnd -= 1;
+		new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
 		qp->m_rate = std::max(m_minRate, new_rate);
 	}
-	else{//brake
-		cwnd -= 1;
-		DataRate new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
+	else{//accel
+		cwnd += 1;
+		new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
 		qp->m_rate = std::max(m_minRate, new_rate);	
 	}
 	// printf("%lu %08x %08x %u %u [%u,%u] \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, ch.ack.seq, qp->snd_nxt);
+
+	int accel = 1;
+	if(cnp)
+		accel = 0;
+	//printf("%lu %08x %08x %u %u %d %u %u %u %f %f\n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, qp->m_rate, old_rate, new_rate.GetBitRate(), cwnd, rtt.GetSeconds());
 
 }
 
