@@ -602,8 +602,9 @@ void RdmaHw::PktSent(Ptr<RdmaQueuePair> qp, Ptr<Packet> pkt, Time interframeGap)
 
 void RdmaHw::UpdateNextAvail(Ptr<RdmaQueuePair> qp, Time interframeGap, uint32_t pkt_size){
 	Time sendingTime;
-	if (m_rateBound)
+	if (m_rateBound){
 		sendingTime = interframeGap + Seconds(qp->m_rate.CalculateTxTime(pkt_size));
+	}
 	else
 		sendingTime = interframeGap + Seconds(qp->m_max_rate.CalculateTxTime(pkt_size));
 	qp->m_nextAvail = Simulator::Now() + sendingTime;
@@ -1134,12 +1135,12 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 
 	DataRate new_rate;
 	if (cnp){//brake
-		cwnd -= 1;
+		cwnd = cwnd - 1 + 1.0 / cwnd;
 		new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
 		qp->m_rate = std::max(m_minRate, new_rate);
 	}
 	else{//accel
-		cwnd += 1;
+		cwnd = cwnd + 1 + 1.0 / cwnd;
 		new_rate = (uint64_t) (cwnd * packet_size / rtt.GetSeconds());
 		qp->m_rate = std::max(m_minRate, new_rate);	
 	}
@@ -1149,7 +1150,7 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	if(cnp)
 		accel = 0;
 	//printf("%lu %08x %08x %u %u %d %u %u %u %f %f\n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, qp->m_rate, old_rate, new_rate.GetBitRate(), cwnd, rtt.GetSeconds());
-	//printf("%lu,%08x,%08x,%u,%u,%u \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, qp->m_rate);
+	printf("%lu,%08x,%08x,%u,%u,%d,%f,%f \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
 
 }
 

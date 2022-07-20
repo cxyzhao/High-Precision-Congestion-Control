@@ -208,14 +208,14 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
 				double tr_t = 1.0; // target rate
 				double yita = 0.95; //eta
-				double delta = 16000.0; //nanoseconds
+				double delta = 64000.0; //nanoseconds
 				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
-				double qLen = dev->GetQueue()->GetNBytesTotal();
+				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
 				double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
 
 
-				double d_t = 20 * 1000000; // 20ms 
+				double d_t = 64 * 1000; // 64us 
 				tr_t = yita * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
 
 			
@@ -243,7 +243,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				p->RemoveHeader(ppp);
 				p->RemoveHeader(h);
 				
-				//printf("%ld, %ld, %f, %f %f %f %s\n", m_DqPktSize[ifIndex], t, dt, tr_t, cr_t, f_t, h.EcnTypeToString(h.GetEcn()).c_str());
+				//printf("%ld, %ld, queueing delay %f, %f, %f %f %f %s\n", m_DqPktSize[ifIndex], t, x_t, dt, tr_t, cr_t, f_t, h.EcnTypeToString(h.GetEcn()).c_str());
 				
 				//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
@@ -255,6 +255,9 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
 					double tokenLimit = 104; //token limit  maxBdp=104000 Bytes
 					abc_token = std::min(abc_token + f_t, tokenLimit);
+					
+					//printf("%f \n", abc_token);
+					
 					if (abc_token > 1.0){
 						abc_token -= 1.0;
 						//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
@@ -275,6 +278,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
+				m_DqPktSize[ifIndex] += p->GetSize();
 			}
 		}
 		else if (m_ecnEnabled){ //Other CC_Mode to process ECN
@@ -380,7 +384,6 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 	m_txBytes[ifIndex] += p->GetSize();
 	m_lastPktSize[ifIndex] = p->GetSize();
 	m_lastPktTs[ifIndex] = Simulator::Now().GetTimeStep();
-	m_DqPktSize[ifIndex] += p->GetSize();
 }
 
 int SwitchNode::logres_shift(int b, int l){
