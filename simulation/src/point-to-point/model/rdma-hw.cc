@@ -1161,24 +1161,29 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
 
 	//Todo(Cxyzhao): hard code
-	double packet_size = 1000; //1pkt in bytes
+	uint64_t packet_size = 1000; //1pkt in bytes
 
 	uint64_t old_rate = qp->m_rate.GetBitRate();
 
 	DataRate new_rate;
 	if (cnp){//brake
-
-		uint32_t new_cwnd = qp->m_win - packet_size + (double) packet_size / qp->m_win; //cwnd in bytes
-		//cwnd is derived by m_rate so we need to adjust the m_rate
-		//Check more details about VAR_WIN
-		new_rate = (double) new_cwnd / qp->m_win * qp->m_rate; 
+		uint64_t cur_cwnd = qp->GetWin();
+		uint64_t new_cwnd = cur_cwnd - packet_size + packet_size / cur_cwnd; //cwnd in bytes
+		
+		//We donot directly adjust the cwnd
+		//cwnd is derived by m_rate when VAR_WIN is enabled
+		//so we just need to adjust the m_rate
+		new_rate = (double) new_cwnd / qp->m_win * qp->m_max_rate; 
 		qp->m_rate = std::max(m_minRate, new_rate);
 	}
 	else{//accel
-		uint32_t new_cwnd = qp->m_win + packet_size + (double) packet_size / qp->m_win;
-		//cwnd is derived by m_rate so we need to adjust the m_rate
-		//Check more details about VAR_WIN
-		new_rate = (double) new_cwnd / qp->m_win * qp->m_rate; 
+		uint64_t cur_cwnd = qp->GetWin();
+		uint64_t new_cwnd = cur_cwnd + packet_size + packet_size / cur_cwnd; //cwnd in bytes
+		
+		//We donot directly adjust the cwnd
+		//cwnd is derived by m_rate when VAR_WIN is enabled
+		//so we just need to adjust the m_rate
+		new_rate = (double) new_cwnd / qp->m_win * qp->m_max_rate; 
 		qp->m_rate = std::max(m_minRate, new_rate);
 	}
 	
@@ -1187,7 +1192,7 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	if(cnp)
 		accel = 0;
 	//printf("%lu %08x %08x %u %u %d %u %u %u %f %f\n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, qp->m_rate, old_rate, new_rate.GetBitRate(), cwnd, rtt.GetSeconds());
-	printf("%lu,%08x,%08x,%u,%u,%d,%f,%f \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
+	//printf("%lu,%08x,%08x,%u,%u,%d,%f,%f \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
 
 }
 
