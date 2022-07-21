@@ -34,7 +34,7 @@ L2_ACK_INTERVAL 1
 L2_BACK_TO_ZERO 0
 
 HAS_WIN {has_win}
-GLOBAL_T 1
+GLOBAL_T 0
 VAR_WIN {vwin}
 FAST_REACT {us}
 U_TARGET {u_tgt}
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 		#cc_mode = 9
 		ai = 5 * bw / 25
 		hai = 50 * bw /25
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
 	elif args.cc == "hp":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:

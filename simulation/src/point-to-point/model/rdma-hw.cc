@@ -1161,12 +1161,14 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
 
 	//Todo(Cxyzhao): hard code
-	double packet_size = 8000; //1pkt in bits
+	double packet_size = 1000; //1pkt in bytes
+
+	uint64_t old_rate = qp->m_rate.GetBitRate();
 
 	DataRate new_rate;
 	if (cnp){//brake
 
-		uint32_t new_cwnd = qp->m_win - packet_size + (double) packet_size / qp->m_win;
+		uint32_t new_cwnd = qp->m_win - packet_size + (double) packet_size / qp->m_win; //cwnd in bytes
 		//cwnd is derived by m_rate so we need to adjust the m_rate
 		//Check more details about VAR_WIN
 		new_rate = (double) new_cwnd / qp->m_win * qp->m_rate; 
