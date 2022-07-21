@@ -247,13 +247,14 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				
 				//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
+
 				if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
 				else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
-					double tokenLimit = 104; //token limit  maxBdp=104000 Bytes
+					double tokenLimit = 20; //token limit  maxBdp=104000 Bytes
 					abc_token = std::min(abc_token + f_t, tokenLimit);
 					
 					//printf("%f \n", abc_token);
@@ -278,6 +279,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
+				//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
 				m_DqPktSize[ifIndex] += p->GetSize();
 			}
 		}
