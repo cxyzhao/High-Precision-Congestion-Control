@@ -1160,32 +1160,24 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
 
-	//Todo(Cxyzhao): hard code
-	uint64_t packet_size = 1000; //1pkt in bytes
-
 	uint64_t old_rate = qp->m_rate.GetBitRate();
 
 	DataRate new_rate;
+	uint64_t cur_cwnd = qp->GetWin();
+	double new_cwnd;
+
 	if (cnp){//brake
-		uint64_t cur_cwnd = qp->GetWin();
-		uint64_t new_cwnd = cur_cwnd - packet_size + packet_size / cur_cwnd; //cwnd in bytes
-		
-		//We donot directly adjust the cwnd
-		//cwnd is derived by m_rate when VAR_WIN is enabled
-		//so we just need to adjust the m_rate
-		new_rate = (double) new_cwnd / qp->m_win * qp->m_max_rate; 
-		qp->m_rate = std::max(m_minRate, new_rate);
+		new_cwnd = cur_cwnd - m_mtu + ((double) m_mtu / cur_cwnd * m_mtu); //cwnd in bytes
 	}
 	else{//accel
-		uint64_t cur_cwnd = qp->GetWin();
-		uint64_t new_cwnd = cur_cwnd + packet_size + packet_size / cur_cwnd; //cwnd in bytes
-		
-		//We donot directly adjust the cwnd
-		//cwnd is derived by m_rate when VAR_WIN is enabled
-		//so we just need to adjust the m_rate
-		new_rate = (double) new_cwnd / qp->m_win * qp->m_max_rate; 
-		qp->m_rate = std::max(m_minRate, new_rate);
+		new_cwnd = cur_cwnd + m_mtu + ((double) m_mtu / cur_cwnd * m_mtu); //cwnd in bytes
 	}
+
+	//We donot directly adjust the cwnd
+	//cwnd is derived by m_rate when VAR_WIN is enabled
+	//so we just need to adjust the m_rate
+	new_rate = new_cwnd / qp->m_win * qp->m_max_rate; 
+	qp->m_rate = std::max(m_minRate, new_rate);
 	
 	//To DEBUG
 	int accel = 1;
