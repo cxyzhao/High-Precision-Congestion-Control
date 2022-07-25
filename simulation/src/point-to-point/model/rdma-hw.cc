@@ -1156,26 +1156,33 @@ void RdmaHw::UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader
 
 void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch){
 
-	// Set flags VAR_WIN and HAS_WIN as true for ABC
-
 	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
 
 	uint64_t old_rate = qp->m_rate.GetBitRate();
 
 	DataRate new_rate;
 	uint64_t cur_cwnd = qp->GetWin();
-	double new_cwnd;
+	double new_cwnd;  //cwnd in bytes
 
+	// double alpha = (double)m_mtu / qp->m_win;
+	//ABC
+	double alpha = (double)m_mtu / cur_cwnd ;
+	if (alpha > 1 ) alpha = 1.0; //Bound alpha less than 1.0
 	if (cnp){//brake
-		new_cwnd = cur_cwnd - m_mtu + ((double) m_mtu / cur_cwnd * m_mtu); //cwnd in bytes
+		new_cwnd = cur_cwnd * ( 1.0 - alpha )  + ((double) m_mtu / cur_cwnd * m_mtu);
 	}
 	else{//accel
-		new_cwnd = cur_cwnd + m_mtu + ((double) m_mtu / cur_cwnd * m_mtu); //cwnd in bytes
+		new_cwnd = cur_cwnd * ( 1.0 +  alpha )  + ((double) m_mtu / cur_cwnd * m_mtu); 
 	}
+	
+	
+
+	
 
 	//We donot directly adjust the cwnd
 	//cwnd is derived by m_rate when VAR_WIN is enabled
-	//so we just need to adjust the m_rate
+	// so we just need to adjust the m_rate
+	// while setting flags VAR_WIN and HAS_WIN as true for ABC 
 	new_rate = new_cwnd / qp->m_win * qp->m_max_rate; 
 	qp->m_rate = std::max(m_minRate, new_rate);
 	
@@ -1184,7 +1191,7 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	if(cnp)
 		accel = 0;
 	//printf("%lu %08x %08x %u %u %d %u %u %u %f %f\n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, qp->m_rate, old_rate, new_rate.GetBitRate(), cwnd, rtt.GetSeconds());
-	//printf("%lu,%08x,%08x,%u,%u,%d,%f,%f \n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
+	//printf("%f, %lu,%08x,%08x,%u,%u,%d,%f,%f \n", alpha, Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
 
 }
 
