@@ -37,6 +37,9 @@ if __name__ == "__main__":
 	parser.add_option("-t", "--time", dest = "time", help = "the total run time (s), by default 10", default = "10")
 	parser.add_option("-o", "--output", dest = "output", help = "the output file", default = "tmp_traffic.txt")
 	parser.add_option("-i", "--incast", dest = "incast", help = "add incast or not", default = "0")
+	parser.add_option("-p", "--pattern", dest = "pattern", help = "traffic pattern, 0(normal), 1(only_cross_pod), 2(only_inner_pod)", default = "0")
+
+	
 	options,args = parser.parse_args()
 
 	base_t = 2000000000
@@ -45,6 +48,7 @@ if __name__ == "__main__":
 		print "please use -n to enter number of hosts"
 		sys.exit(0)
 	nhost = int(options.nhost)
+	pattern = int(options.pattern)
 	load = float(options.load)
 	bandwidth = translate_bandwidth(options.bandwidth)
 	time = float(options.time)*1e9 # translates to ns
@@ -86,8 +90,17 @@ if __name__ == "__main__":
 		inter_t = int(poisson(avg_inter_arrival))
 		new_tuple = (src, t + inter_t)
 		dst = random.randint(0, nhost-1)
-		while (dst == src):
-			dst = random.randint(0, nhost-1)
+		if (pattern == 0):
+			while (dst == src ):
+				dst = random.randint(0, nhost-1)
+		elif (pattern == 1):
+			#only cross pod
+			while (dst % 16 == src % 16):
+				dst = random.randint(0, nhost-1)
+		elif (pattern == 2):
+			#only cross pod
+			while (dst % 16 != src % 16 or dst == src):
+				dst = random.randint(0, nhost-1)
 		if (t + inter_t > time + base_t):
 			heapq.heappop(host_list)
 		else:

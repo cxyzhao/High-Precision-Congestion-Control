@@ -1,3 +1,4 @@
+#include <queue>
 #include <ns3/simulator.h>
 #include <ns3/seq-ts-header.h>
 #include <ns3/udp-header.h>
@@ -34,6 +35,11 @@ TypeId RdmaHw::GetTypeId (void)
 				UintegerValue(0),
 				MakeUintegerAccessor(&RdmaHw::m_cc_mode),
 				MakeUintegerChecker<uint32_t>())
+		.AddAttribute ("SlowUnit",
+				"enable slow adjustment unit for ABC",
+				BooleanValue(false),
+				MakeBooleanAccessor(&RdmaHw::slow_unit),
+				MakeBooleanChecker())
 		.AddAttribute("NACK Generation Interval",
 				"The NACK Generation interval",
 				DoubleValue(500.0),
@@ -1163,11 +1169,15 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	DataRate new_rate;
 	uint64_t cur_cwnd = qp->GetWin();
 	double new_cwnd;  //cwnd in bytes
+	double alpha;
 
-	// double alpha = (double)m_mtu / qp->m_win;
-	//ABC
-	double alpha = (double)m_mtu / cur_cwnd ;
+	if(slow_unit)
+		alpha = (double)m_mtu / qp->m_win;
+	else
+		alpha = (double)m_mtu / cur_cwnd; //ABC
+
 	if (alpha > 1 ) alpha = 1.0; //Bound alpha less than 1.0
+
 	if (cnp){//brake
 		new_cwnd = cur_cwnd * ( 1.0 - alpha )  + ((double) m_mtu / cur_cwnd * m_mtu);
 	}
@@ -1175,10 +1185,6 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 		new_cwnd = cur_cwnd * ( 1.0 +  alpha )  + ((double) m_mtu / cur_cwnd * m_mtu); 
 	}
 	
-	
-
-	
-
 	//We donot directly adjust the cwnd
 	//cwnd is derived by m_rate when VAR_WIN is enabled
 	// so we just need to adjust the m_rate
@@ -1188,10 +1194,21 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	
 	//To DEBUG
 	int accel = 1;
-	if(cnp)
+	if(cnp){//brake
 		accel = 0;
+		q.push(0);
+	}
+	else{
+		q.push(1);
+		count_accel += 1;
+	}
+	if (q.size() > 100){
+		count_accel -= q.front();
+		q.pop();
+	}
+	
 	//printf("%lu %08x %08x %u %u %d %u %u %u %f %f\n", Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, qp->m_rate, old_rate, new_rate.GetBitRate(), cwnd, rtt.GetSeconds());
-	//printf("%f, %lu,%08x,%08x,%u,%u,%d,%f,%f \n", alpha, Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0);
+	//printf("%f, %lu,%08x,%08x,%u,%u,%d,%f,%f, %d \n", alpha, Simulator::Now().GetTimeStep(), qp->sip.Get(), qp->dip.Get(), qp->sport, qp->dport, accel, old_rate / 1000000000.0, qp->m_rate.GetBitRate ()  / 1000000000.0, count_accel);
 
 }
 

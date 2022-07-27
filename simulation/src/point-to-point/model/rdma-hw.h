@@ -154,6 +154,9 @@ public:
 	/**********************
 	 * ABC
 	 *********************/
+	bool slow_unit;
+	uint32_t count_accel = 0;
+	std::queue<int> q;
 	void HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch);
 };
 

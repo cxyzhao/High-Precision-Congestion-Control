@@ -85,6 +85,8 @@ string qlen_mon_file;
 unordered_map<uint64_t, uint32_t> rate2kmax, rate2kmin;
 unordered_map<uint64_t, double> rate2pmax;
 
+//For ABC with slow adjustment unit
+bool slow_unit = false;
 /************************************************
  * Runtime varibles
  ***********************************************/
@@ -366,6 +368,16 @@ int main(int argc, char *argv[])
 					std::cout << "ENABLE_QCN\t\t\t" << "Yes" << "\n";
 				else
 					std::cout << "ENABLE_QCN\t\t\t" << "No" << "\n";
+			}
+			else if (key.compare("SLOW_UNIT") == 0)
+			{
+				uint32_t v;
+				conf >> v;
+				slow_unit = v;
+				if (slow_unit)
+					std::cout << "SLOW_UNIT\t\t\t" << "Yes" << "\n";
+				else
+					std::cout << "SLOW_UNIT\t\t\t" << "No" << "\n";
 			}
 			else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0)
 			{
@@ -869,6 +881,7 @@ int main(int argc, char *argv[])
 			rdmaHw->SetAttribute("L2ChunkSize", UintegerValue(l2_chunk_size));
 			rdmaHw->SetAttribute("L2AckInterval", UintegerValue(l2_ack_interval));
 			rdmaHw->SetAttribute("CcMode", UintegerValue(cc_mode));
+			rdmaHw->SetAttribute("SlowUnit", BooleanValue(slow_unit));
 			rdmaHw->SetAttribute("RateDecreaseInterval", DoubleValue(rate_decrease_interval));
 			rdmaHw->SetAttribute("MinRate", DataRateValue(DataRate(min_rate)));
 			rdmaHw->SetAttribute("Mtu", UintegerValue(packet_payload_size));
