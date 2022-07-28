@@ -257,16 +257,15 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				
 				//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
-
+				double tokenLimit = 20; //token limit  maxBdp=104000 Bytes
+				abc_token = std::min(abc_token + f_t, tokenLimit);
+				
 				if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
 				else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
-					double tokenLimit = 20; //token limit  maxBdp=104000 Bytes
-					abc_token = std::min(abc_token + f_t, tokenLimit);
-					
 					//printf("%f \n", abc_token);
 					
 					if (abc_token > 1.0){

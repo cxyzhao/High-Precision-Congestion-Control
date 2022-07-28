@@ -31,15 +31,34 @@ if __name__=="__main__":
 		# 'abc',
 		# 'abc_slowUnit'
 
-
-		'abcdt0dl64000_1',
-		'abcdt32000dl64000_1',
-		'abcdt64000dl64000_1',
-		'abcdt0dl32000_1',
-		'abcdt16000dl32000_1',
-
+		# # For AckHigh
 		# "abc_1",
 		# "abc_0"
+
+
+		# # For varying d_t
+		# 'abcdt0dl64000_1',
+		# 'abcdt32000dl64000_1',
+		# 'abcdt64000dl64000_1',
+		# 'abcdt0dl32000_1',
+		# 'abcdt16000dl32000_1',
+		# 'abcdt32000dl32000_1',
+
+		# # For 1flow test
+		# 'hp95ai80_1',
+		# 'dcqcn_1',
+		# 'timely_1',
+		# 'dctcp_1',
+		# 'abcdt32000dl32000_1',
+		# 'abc_slowUnitdt32000dl32000_1'
+
+		# For FCT test 
+		'hp95ai80_1',
+		'dcqcn_1',
+		'timely_1',
+		'dctcp_1',
+		'abcdt32000dl32000_1',
+		'abc_slowUnitdt32000dl32000_1'
 
 	]
 
@@ -62,33 +81,35 @@ if __name__=="__main__":
 			output = subprocess.check_output(cmd, shell=True)
 
 		# up to here, `output` should be a string of multiple lines, each line is: fct, size
-		a = output.split('\n')[:-1]
+		a = output.split('\n')[:-2]
 		n = len(a)
 		for i in range(0,100,step):
 			l = i * n / 100
 			r = (i+step) * n / 100
 			d = map(lambda x: [float(x.split()[0]), int(x.split()[1])], a[l:r])
 			fct=sorted(map(lambda x: x[0], d))
+			#print(i, step, i/step, len(res))
 			res[i/step].append(d[-1][1]) # flow size
 			#res[i/step].append(sum(fct) / len(fct)) # avg fct
 			res[i/step].append(get_pctl(fct, 0.5)) # mid fct
 			res[i/step].append(get_pctl(fct, 0.95)) # 95-pct fct
 			res[i/step].append(get_pctl(fct, 0.99)) # 99-pct fct
 	
-		n_1pkt_flow = 1
-		fct_1pkt_flow = 1.0
-		fct_longflow = 1.0
-		for line in a:
-			if int(line.split()[1]) == 100:
-				n_1pkt_flow += 1
-				fct_1pkt_flow += float(line.split()[0])
-			if int(line.split()[1]) == 125000000:
-				fct_longflow = float(line.split()[0])
+		# a = output.split('\n')[:-1]
+		# n_1pkt_flow = 1
+		# fct_1pkt_flow = 1.0
+		# fct_longflow = 1.0
+		# for line in a:
+		# 	if int(line.split()[1]) == 100:
+		# 		n_1pkt_flow += 1
+		# 		fct_1pkt_flow += float(line.split()[0])
+		# 	if int(line.split()[1]) == 125000000:
+		# 		fct_longflow = float(line.split()[0])
 		
-		q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
-		Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
-		lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
-		print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
+		# q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
+		# Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
+		# lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
+		# print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
 	
 	for item in res:
 		#line = "%.3f %d"%(item[0], item[1])
