@@ -39,6 +39,17 @@ TypeId SwitchNode::GetTypeId (void)
 			UintegerValue(9000),
 			MakeUintegerAccessor(&SwitchNode::m_maxRtt),
 			MakeUintegerChecker<uint32_t>())
+	.AddAttribute("AbcDt",
+			"ABC D_t value (ns)",
+			UintegerValue(64000),
+			MakeUintegerAccessor(&SwitchNode::abc_dt),
+			MakeUintegerChecker<uint32_t>())
+	.AddAttribute("AbcDelta",
+			"ABC Delta value (ns)",
+			UintegerValue(64000),
+			MakeUintegerAccessor(&SwitchNode::abc_delta),
+			MakeUintegerChecker<uint32_t>())
+	
   ;
   return tid;
 }
@@ -109,7 +120,6 @@ void SwitchNode::SendToDev(Ptr<Packet>p, CustomHeader &ch){
 	int idx = GetOutDev(p, ch);
 	if (idx >= 0){
 		NS_ASSERT_MSG(m_devices[idx]->IsLinkUp(), "The routing table look up should return link that is up");
-
 		// determine the qIndex
 		uint32_t qIndex;
 		if (ch.l3Prot == 0xFF || ch.l3Prot == 0xFE || (m_ackHighPrio && (ch.l3Prot == 0xFD || ch.l3Prot == 0xFC))){  //QCN or PFC or NACK, go highest priority
@@ -208,14 +218,14 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
 				double tr_t = 1.0; // target rate
 				double yita = 0.95; //eta
-				double delta = 64000.0; //nanoseconds
+				double delta = abc_delta; //nanoseconds
 				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
 				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
 				double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
 
 
-				double d_t = 64 * 1000; // 64us 
+				double d_t = abc_dt; // nanoseconds
 				tr_t = yita * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
 
 			

@@ -1172,9 +1172,9 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	double alpha;
 
 	if(slow_unit)
-		alpha = (double)m_mtu / qp->m_win;
+		alpha = (double)m_mtu / qp->m_win; // m_win is pair_bdp
 	else
-		alpha = (double)m_mtu / cur_cwnd; //ABC
+		alpha = (double)m_mtu / cur_cwnd; // ABC
 
 	if (alpha > 1 ) alpha = 1.0; //Bound alpha less than 1.0
 

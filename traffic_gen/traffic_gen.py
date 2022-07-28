@@ -38,7 +38,7 @@ if __name__ == "__main__":
 	parser.add_option("-o", "--output", dest = "output", help = "the output file", default = "tmp_traffic.txt")
 	parser.add_option("-i", "--incast", dest = "incast", help = "add incast or not", default = "0")
 	parser.add_option("-p", "--pattern", dest = "pattern", help = "traffic pattern, 0(normal), 1(only_cross_pod), 2(only_inner_pod)", default = "0")
-
+	parser.add_option("-j", "--inject", dest = "inject", help = "inject long flow and 1pkt flow", default = "0")
 	
 	options,args = parser.parse_args()
 
@@ -48,6 +48,7 @@ if __name__ == "__main__":
 		print "please use -n to enter number of hosts"
 		sys.exit(0)
 	nhost = int(options.nhost)
+	inject = int(options.inject)
 	pattern = int(options.pattern)
 	load = float(options.load)
 	bandwidth = translate_bandwidth(options.bandwidth)
@@ -85,6 +86,9 @@ if __name__ == "__main__":
 	ofile.write("%d \n"%n_flow_estimate)
 	host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(nhost)]
 	heapq.heapify(host_list)
+	if (inject):
+		output_flow_lst.append((base_t * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 125000000, base_t * 1e-9)))
+		
 	while len(host_list) > 0:
 		t,src = host_list[0]
 		inter_t = int(poisson(avg_inter_arrival))
@@ -108,6 +112,9 @@ if __name__ == "__main__":
 			if size <= 0:
 				size = 1
 			n_flow += 1
+			if (inject and n_flow > 100 and n_flow % 1000 == 0):
+				output_flow_lst.append(( (t-1) * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 100, (t-1) * 1e-9)))
+	
 			#Append flow_tuple (start_time, flow_info)
 			output_flow_lst.append((t * 1e-9,"%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9)))
 			#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))

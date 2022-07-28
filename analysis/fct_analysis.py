@@ -1,6 +1,8 @@
 import subprocess
 import argparse
 
+
+
 def get_pctl(a, p):
 	i = int(len(a) * p)
 	return a[i]
@@ -50,7 +52,7 @@ if __name__=="__main__":
 			output = subprocess.check_output(cmd, shell=True)
 
 		# up to here, `output` should be a string of multiple lines, each line is: fct, size
-		a = output.split('\n')[:-2]
+		a = output.split('\n')[:-1]
 		n = len(a)
 		for i in range(0,100,step):
 			l = i * n / 100
@@ -62,6 +64,22 @@ if __name__=="__main__":
 			res[i/step].append(get_pctl(fct, 0.5)) # mid fct
 			res[i/step].append(get_pctl(fct, 0.95)) # 95-pct fct
 			res[i/step].append(get_pctl(fct, 0.99)) # 99-pct fct
+	
+		n_1pkt_flow = 1
+		fct_1pkt_flow = 1.0
+		fct_longflow = 1.0
+		for line in a:
+			if int(line.split()[1]) == 100:
+				n_1pkt_flow += 1
+				fct_1pkt_flow += float(line.split()[0])
+			if int(line.split()[1]) == 125000000:
+				fct_longflow = float(line.split()[0])
+		
+		q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
+		Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
+		lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
+		print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
+	
 	for item in res:
 		#line = "%.3f %d"%(item[0], item[1])
 		line = "%d,"%(item[1])
@@ -71,3 +89,7 @@ if __name__=="__main__":
 			line += "%.3f,%.3f,"%(item[i+2], item[i+3])
 			i += 4
 		print line
+
+	
+
+

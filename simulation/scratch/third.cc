@@ -43,6 +43,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+uint32_t abc_dt, abc_delta;
 bool enable_qcn = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -663,6 +664,14 @@ int main(int argc, char *argv[])
 				conf >> pint_prob;
 				std::cout << "PINT_PROB\t\t\t\t" << pint_prob << '\n';
 			}
+			else if (key.compare("ABC_DT") == 0){
+				conf >> abc_dt;
+				std::cout << "ABC_DT\t\t\t\t" << abc_dt << '\n';
+			}
+			else if (key.compare("ABC_DELTA") == 0){
+				conf >> abc_delta;
+				std::cout << "ABC_DELTA\t\t\t\t" << abc_delta << '\n';
+			}
 			fflush(stdout);
 		}
 		conf.close();
@@ -950,6 +959,9 @@ int main(int argc, char *argv[])
 			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
 			sw->SetAttribute("CcMode", UintegerValue(cc_mode));
 			sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
+			sw->SetAttribute("AckHighPrio", UintegerValue(ack_high_prio));
+			sw->SetAttribute("AbcDt", UintegerValue(abc_dt));
+			sw->SetAttribute("AbcDelta", UintegerValue(abc_delta));
 		}
 	}
 
