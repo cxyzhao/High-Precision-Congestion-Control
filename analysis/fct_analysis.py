@@ -24,12 +24,22 @@ if __name__=="__main__":
 	# For the exact naming, please check ../simulation/mix/fct_*.txt output by the simulation.
 	CCs = [
 		#'hpccPint95ai50log1.05p1.000',
-		'hp95ai80',
-		'dcqcn',
-		'timely',
-		'dctcp',
-		'abc',
-		'abc_slowUnit'
+		# 'hp95ai80',
+		# 'dcqcn',
+		# 'timely',
+		# 'dctcp',
+		# 'abc',
+		# 'abc_slowUnit'
+
+
+		'abcdt0dl64000_1',
+		'abcdt32000dl64000_1',
+		'abcdt64000dl64000_1',
+		'abcdt0dl32000_1',
+		'abcdt16000dl32000_1',
+
+		# "abc_1",
+		# "abc_0"
 
 	]
 
@@ -85,8 +95,8 @@ if __name__=="__main__":
 		line = "%d,"%(item[1])
 		i = 1
 		for cc in CCs:
-			#line += "\t%.3f %.3f %.3f"%(item[i+1], item[i+2], item[i+3])
-			line += "%.3f,%.3f,"%(item[i+2], item[i+3])
+			line += "%.3f,%.3f,%.3f,"%(item[i+1], item[i+2], item[i+3])
+			#line += "%.3f,%.3f,"%(item[i+2], item[i+3])
 			i += 4
 		print line
 
