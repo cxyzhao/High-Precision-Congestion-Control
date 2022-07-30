@@ -53,12 +53,37 @@ if __name__=="__main__":
 		# 'abc_slowUnitdt32000dl32000_1'
 
 		# For FCT test 
-		'hp95ai80_1',
-		'dcqcn_1',
-		'timely_1',
-		'dctcp_1',
-		'abcdt32000dl32000_1',
-		'abc_slowUnitdt32000dl32000_1'
+		# 'hp95ai80_1',
+		# 'dcqcn_1',
+		# 'timely_1',
+		# 'dctcp_1',
+		# 'abcdt32000dl32000_1',
+		# 'abc_slowUnitdt32000dl32000_1'
+
+		#"abc_slowUnitdt64000dl64000token50_1",
+	
+		# # For 1flow test
+		# "abcdt0dl16000token50_1",
+		# "abcdt8000dl16000token50_1",
+		# "abcdt16000dl16000token50_1",
+		# "abcdt0dl32000token50_1",
+		# "abcdt16000dl32000token50_1",
+		# "abcdt32000dl32000token50_1",
+		# "abcdt0dl64000token50_1",
+		# "abcdt32000dl64000token50_1",
+		# "abcdt64000dl64000token50_1",
+
+		# For FCT test
+		#  
+
+
+		"abcdt0dl16000token30_1",
+		"abcdt0dl16000token50_1",
+		"abcdt0dl16000token70_1",
+		# "abc_slowUnitdt0dl16000token30_1",
+		# "abc_slowUnitdt0dl16000token50_1",
+		# "abc_slowUnitdt0dl16000token70_1"
+		
 
 	]
 
@@ -95,21 +120,21 @@ if __name__=="__main__":
 			res[i/step].append(get_pctl(fct, 0.95)) # 95-pct fct
 			res[i/step].append(get_pctl(fct, 0.99)) # 99-pct fct
 	
-		# a = output.split('\n')[:-1]
-		# n_1pkt_flow = 1
-		# fct_1pkt_flow = 1.0
-		# fct_longflow = 1.0
-		# for line in a:
-		# 	if int(line.split()[1]) == 100:
-		# 		n_1pkt_flow += 1
-		# 		fct_1pkt_flow += float(line.split()[0])
-		# 	if int(line.split()[1]) == 125000000:
-		# 		fct_longflow = float(line.split()[0])
+		a = output.split('\n')[:-1]
+		n_1pkt_flow = 1
+		fct_1pkt_flow = 1.0
+		fct_longflow = 1.0
+		for line in a:
+			if int(line.split()[1]) == 100:
+				n_1pkt_flow += 1
+				fct_1pkt_flow += float(line.split()[0])
+			if int(line.split()[1]) == 125000000:
+				fct_longflow = float(line.split()[0])
 		
-		# q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
-		# Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
-		# lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
-		# print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
+		q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
+		Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
+		lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
+		print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
 	
 	for item in res:
 		#line = "%.3f %d"%(item[0], item[1])

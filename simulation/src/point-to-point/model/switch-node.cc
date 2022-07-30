@@ -41,18 +41,27 @@ TypeId SwitchNode::GetTypeId (void)
 			MakeUintegerChecker<uint32_t>())
 	.AddAttribute("AbcDt",
 			"ABC D_t value (ns)",
-			UintegerValue(64000),
-			MakeUintegerAccessor(&SwitchNode::abc_dt),
-			MakeUintegerChecker<uint32_t>())
+			DoubleValue(64000.0),
+			MakeDoubleAccessor(&SwitchNode::abc_dt),
+			MakeDoubleChecker<double>())
 	.AddAttribute("AbcDelta",
 			"ABC Delta value (ns)",
-			UintegerValue(64000),
-			MakeUintegerAccessor(&SwitchNode::abc_delta),
-			MakeUintegerChecker<uint32_t>())
+			DoubleValue(64000.0),
+			MakeDoubleAccessor(&SwitchNode::abc_delta),
+			MakeDoubleChecker<double>())
+	.AddAttribute("AbcToken",
+			"ABC Token",
+			DoubleValue(50),
+			MakeDoubleAccessor(&SwitchNode::abc_tokenLimit),
+			MakeDoubleChecker<double>())
 	
   ;
   return tid;
 }
+
+
+
+
 
 SwitchNode::SwitchNode(){
 	m_ecmpSeed = m_id;
@@ -257,9 +266,9 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				
 				//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
-				double tokenLimit = 20; //token limit  maxBdp=104000 Bytes
+				double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
 				abc_token = std::min(abc_token + f_t, tokenLimit);
-				
+
 				if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					p->AddHeader(h);

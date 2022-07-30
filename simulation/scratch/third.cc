@@ -43,7 +43,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
-uint32_t abc_dt, abc_delta;
+double abc_dt, abc_delta, abc_token;
 bool enable_qcn = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -672,6 +672,10 @@ int main(int argc, char *argv[])
 				conf >> abc_delta;
 				std::cout << "ABC_DELTA\t\t\t\t" << abc_delta << '\n';
 			}
+			else if (key.compare("ABC_TOKEN") == 0){
+				conf >> abc_token;
+				std::cout << "ABC_TOKEN\t\t\t\t" << abc_token << '\n';
+			}
 			fflush(stdout);
 		}
 		conf.close();
@@ -960,8 +964,9 @@ int main(int argc, char *argv[])
 			sw->SetAttribute("CcMode", UintegerValue(cc_mode));
 			sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
 			sw->SetAttribute("AckHighPrio", UintegerValue(ack_high_prio));
-			sw->SetAttribute("AbcDt", UintegerValue(abc_dt));
-			sw->SetAttribute("AbcDelta", UintegerValue(abc_delta));
+			sw->SetAttribute("AbcDt", DoubleValue(abc_dt));
+			sw->SetAttribute("AbcDelta", DoubleValue(abc_delta));
+			sw->SetAttribute("AbcToken", DoubleValue(abc_token));
 		}
 	}
 

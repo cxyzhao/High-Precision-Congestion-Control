@@ -32,15 +32,16 @@ class SwitchNode : public Node{
 	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
 	double dqRate[pCnt]; // dequeue rate
 
-	// token for ABC
-	double abc_token = 0.0;
+	
 
 protected:
 	bool m_ecnEnabled;
 	uint32_t m_ccMode;
 	uint64_t m_maxRtt;
-	uint32_t abc_dt;
-	uint32_t abc_delta;
+	double abc_dt;
+	double abc_delta;
+	double abc_tokenLimit;
+	double abc_token = 0;
 
 	uint32_t m_ackHighPrio; // set high priority for ACK/NACK
 
