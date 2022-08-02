@@ -48,6 +48,7 @@ PINT_PROB {pint_prob}
 ABC_DT {abc_dt}
 ABC_DELTA {abc_delta}
 ABC_TOKEN {abc_token}
+ABC_ETA {abc_eta}
 
 RATE_BOUND 1
 
@@ -82,8 +83,9 @@ if __name__ == "__main__":
 	parser.add_argument('--enable_tr', dest='enable_tr', action = 'store', type=int, default=0, help="enable packet-level events dump")
 	parser.add_argument('--slow_unit', dest='slow_unit', action='store', type=int, default=0, help="enable slow adjustment unit")
 	parser.add_argument('--ack_highprio', dest='ack_highprio', action='store', type=int, default=0, help="enable ABC ack_highprio")
-	parser.add_argument('--abc_dt', dest='abc_dt', action='store', type=int, default=64000, help="ABC d_t value (ns)")
-	parser.add_argument('--abc_delta', dest='abc_delta', action='store', type=int, default=64000, help="ABC delta value (ns)")
+	parser.add_argument('--abc_dt', dest='abc_dt', action='store', type=float, default=64000, help="ABC d_t value (ns)")
+	parser.add_argument('--abc_delta', dest='abc_delta', action='store', type=float, default=64000, help="ABC delta value (ns)")
+	parser.add_argument('--abc_eta', dest='abc_eta', action='store', type=float, default=0.95, help="ABC eta to calculate tr")
 	parser.add_argument('--abc_token', dest='abc_token', action='store', type=int, default=50, help="ABC token limit")
 	args = parser.parse_args()
 
@@ -103,6 +105,7 @@ if __name__ == "__main__":
 	abc_dt = args.abc_dt
 	abc_delta = args.abc_delta
 	abc_token = args.abc_token
+	abc_eta = args.abc_eta
 
 	failure = ''
 	if args.down != '0 0 0':
@@ -118,13 +121,13 @@ if __name__ == "__main__":
 		hai = 50 * bw /25
 
 		if args.cc == "dcqcn":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 		elif args.cc == "dcqcn_paper":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 		elif args.cc == "dcqcn_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 		elif args.cc == "dcqcn_paper_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "abc":
 		#cc_mode = 9
 		ai = 5 * bw / 25
@@ -132,9 +135,9 @@ if __name__ == "__main__":
 		cc = args.cc
 		if (slow_unit):
 			cc += "_slowUnit"
-		cc += "dt{}dl{}token{}".format(abc_dt, abc_delta, abc_token)
+		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
 		config_name = "mix/config_%s_%s_%s%s_ackHigh%d.txt"%(topo, trace, cc, failure, ack_highprio)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "hp":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -147,7 +150,7 @@ if __name__ == "__main__":
 		if args.hpai > 0:
 			cc += "ai%d"%ai
 		config_name = "mix/config_%s_%s_%s%s_ackHigh%d.txt"%(topo, trace, cc, failure, ack_highprio)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "dctcp":
 		ai = 10 # ai is useless for dctcp
 		hai = ai  # also useless
@@ -155,15 +158,15 @@ if __name__ == "__main__":
 		kmax_map = "2 %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*4*1000000000, 30*bw*4/10)
 		kmin_map = "2 %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*4*1000000000, 30*bw*4/10)
 		pmax_map = "2 %d %.2f %d %.2f"%(bw*1000000000, 1.0, bw*4*1000000000, 1.0)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "timely":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "timely_vwin":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	elif args.cc == "hpccPint":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -178,7 +181,7 @@ if __name__ == "__main__":
 		cc += "log%.3f"%pint_log_base
 		cc += "p%.3f"%pint_prob
 		config_name = "mix/config_%s_%s_%s%s_ackHigh%d.txt"%(topo, trace, cc, failure, ack_highprio)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta)
 	else:
 		print "unknown cc:", args.cc
 		sys.exit(1)

@@ -54,6 +54,11 @@ TypeId SwitchNode::GetTypeId (void)
 			DoubleValue(50),
 			MakeDoubleAccessor(&SwitchNode::abc_tokenLimit),
 			MakeDoubleChecker<double>())
+	.AddAttribute("AbcEta",
+			"ABC Eta",
+			DoubleValue(0.95),
+			MakeDoubleAccessor(&SwitchNode::abc_eta),
+			MakeDoubleChecker<double>())
 	
   ;
   return tid;
@@ -235,7 +240,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 
 
 				double d_t = abc_dt; // nanoseconds
-				tr_t = yita * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
+				tr_t = abc_eta * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
 
 			
 

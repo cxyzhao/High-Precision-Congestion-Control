@@ -40,6 +40,7 @@ protected:
 	uint64_t m_maxRtt;
 	double abc_dt;
 	double abc_delta;
+	double abc_eta;
 	double abc_tokenLimit;
 	double abc_token = 0;
 

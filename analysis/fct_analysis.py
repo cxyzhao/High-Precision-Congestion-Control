@@ -83,6 +83,12 @@ if __name__=="__main__":
 		# "abc_slowUnitdt0dl16000token30_1",
 		# "abc_slowUnitdt0dl16000token50_1",
 		# "abc_slowUnitdt0dl16000token70_1"
+		"abcdt32000dl32000token50_1",
+		"abcdt0dl64000token50_1",
+		"abcdt16000dl16000token50_1",
+		"abcdt0dl32000token50_1",
+		"abcdt64000dl64000token50_1",
+
 		
 
 	]
@@ -92,6 +98,7 @@ if __name__=="__main__":
 	for cc in CCs:
 		#file = "%s_%s.txt"%(args.prefix, cc)
 		file = "../simulation/mix/%s_%s.txt"%(args.prefix, cc)
+		#file = "../simulation/mix/results_archiv_v1/%s_%s.txt"%(args.prefix, cc)
 		if type == 0:
 			cmd = "cat %s"%(file)+" | awk '{if ($4==100 && $6+$7<"+"%d"%time_limit+") {slow=$7/$8;print slow<1?1:slow, $5}}' | sort -n -k 2"
 			# print cmd
