@@ -10,6 +10,7 @@
 #include "qbb-net-device.h"
 #include "ppp-header.h"
 #include "ns3/int-header.h"
+#include "ns3/random-variable.h"
 #include <cmath>
 
 namespace ns3 {
@@ -304,6 +305,36 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				}
 				//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
 				m_DqPktSize[ifIndex] += p->GetSize();
+			}
+		}
+		else if (m_ccMode == 5){ //ABC + simplifed Switch
+			uint8_t* buf = p->GetBuffer();
+			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
+				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+				
+				
+				double delta = abc_delta; //nanoseconds
+				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+				double kmax = (delta / 1000000000) * u_t;
+				double kmin = 2100; //2pkt size
+
+				PppHeader ppp;
+				Ipv4Header h;
+				p->RemoveHeader(ppp);
+				p->RemoveHeader(h);
+				if (qLen > kmax) { // Mark Brake
+						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+				}
+				else if (qLen > kmin){
+					double p = 0.5 * double(qLen - kmin) / (kmax - kmin) + 0.5;
+					if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
+						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+				}
+				p->AddHeader(h);
+				p->AddHeader(ppp);
 			}
 		}
 		else if (m_ecnEnabled){ //Other CC_Mode to process ECN

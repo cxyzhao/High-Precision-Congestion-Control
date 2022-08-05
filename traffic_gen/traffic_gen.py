@@ -39,7 +39,7 @@ if __name__ == "__main__":
 	parser.add_option("-i", "--incast", dest = "incast", help = "add incast or not", default = "0")
 	parser.add_option("-p", "--pattern", dest = "pattern", help = "traffic pattern, 0(normal), 1(only_cross_pod), 2(only_inner_pod)", default = "0")
 	parser.add_option("-j", "--inject", dest = "inject", help = "inject long flow and 1pkt flow", default = "0")
-	
+	parser.add_option("-r", "--repeat", dest = "repeat", help = "Number of repeat genereatin non-incast flows", default="1")
 	options,args = parser.parse_args()
 
 	base_t = 2000000000
@@ -49,11 +49,18 @@ if __name__ == "__main__":
 		sys.exit(0)
 	nhost = int(options.nhost)
 	inject = int(options.inject)
+	repeat = int(options.repeat)
 	pattern = int(options.pattern)
 	load = float(options.load)
 	bandwidth = translate_bandwidth(options.bandwidth)
 	time = float(options.time)*1e9 # translates to ns
+	
+	
+
 	output = options.output
+	if(output.find("tmp_traffic.txt")!=-1):
+		output = "{}_n{}_load{}_t{}_inject{}_repeat{}.txt".format(options.cdf_file.replace(".txt", ""), nhost, load, options.time, inject, repeat)
+
 	if bandwidth == None:
 		print "bandwidth format incorrect"
 		sys.exit(0)
@@ -77,48 +84,56 @@ if __name__ == "__main__":
 
 	# Store results to outputlater
 	output_flow_lst = []
-
+	if (inject):
+		output_flow_lst.append((base_t * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 125000000, base_t * 1e-9)))
+	
 	# generate non-incast flows
 	avg = customRand.getAvg()
 	avg_inter_arrival = 1/(bandwidth*load/8./avg)*1000000000
-	n_flow_estimate = int(time / avg_inter_arrival * nhost)
+	n_flow_estimate = int(time / avg_inter_arrival * nhost) * repeat
 	n_flow = 0
-	ofile.write("%d \n"%n_flow_estimate)
-	host_list = [(base_t + int(poisson(avg_inter_arrival)), i) for i in range(nhost)]
-	heapq.heapify(host_list)
-	if (inject):
-		output_flow_lst.append((base_t * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 125000000, base_t * 1e-9)))
+	ofile.write("%d \n" % n_flow_estimate)
+
+	for round in range(repeat):
+		#base_t is different for different repeated round
+		round_interval = time * 2.0 #interval is the same as duration
+		base_t_curRound = base_t + round * round_interval
+		print(round, base_t_curRound, n_flow)
+		host_list = [(base_t_curRound + int(poisson(avg_inter_arrival)), i) for i in range(nhost)]
+		heapq.heapify(host_list)
+			
+		while len(host_list) > 0:
+			t,src = host_list[0]
+			inter_t = int(poisson(avg_inter_arrival))
+			new_tuple = (src, t + inter_t)
+			dst = random.randint(0, nhost-1)
+			if (pattern == 0):
+				while (dst == src ):
+					dst = random.randint(0, nhost-1)
+			elif (pattern == 1):
+				#only cross pod
+				while (dst % 16 == src % 16):
+					dst = random.randint(0, nhost-1)
+			elif (pattern == 2):
+				#only cross pod
+				while (dst % 16 != src % 16 or dst == src):
+					dst = random.randint(0, nhost-1)
+			if (t + inter_t > time + base_t_curRound):
+				heapq.heappop(host_list)
+			else:
+				size = int(customRand.rand())
+				if size <= 0:
+					size = 1
+				n_flow += 1
+
+				# Inject 1pkt flow to detect qDelay
+				if (inject and n_flow > 100 and n_flow % 1000 == 0):
+					output_flow_lst.append(( (t-1) * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 100, (t-1) * 1e-9)))
 		
-	while len(host_list) > 0:
-		t,src = host_list[0]
-		inter_t = int(poisson(avg_inter_arrival))
-		new_tuple = (src, t + inter_t)
-		dst = random.randint(0, nhost-1)
-		if (pattern == 0):
-			while (dst == src ):
-				dst = random.randint(0, nhost-1)
-		elif (pattern == 1):
-			#only cross pod
-			while (dst % 16 == src % 16):
-				dst = random.randint(0, nhost-1)
-		elif (pattern == 2):
-			#only cross pod
-			while (dst % 16 != src % 16 or dst == src):
-				dst = random.randint(0, nhost-1)
-		if (t + inter_t > time + base_t):
-			heapq.heappop(host_list)
-		else:
-			size = int(customRand.rand())
-			if size <= 0:
-				size = 1
-			n_flow += 1
-			if (inject and n_flow > 100 and n_flow % 1000 == 0):
-				output_flow_lst.append(( (t-1) * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 100, (t-1) * 1e-9)))
-	
-			#Append flow_tuple (start_time, flow_info)
-			output_flow_lst.append((t * 1e-9,"%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9)))
-			#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
-			heapq.heapreplace(host_list, (t + inter_t, src))
+				#Append flow_tuple (start_time, flow_info)
+				output_flow_lst.append((t * 1e-9,"%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+				#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
+				heapq.heapreplace(host_list, (t + inter_t, src))
 
 	print("without incast: %d" % n_flow)
 

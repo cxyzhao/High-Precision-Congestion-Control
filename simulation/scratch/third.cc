@@ -83,6 +83,10 @@ uint32_t qlen_dump_interval = 100000000, qlen_mon_interval = 100;
 uint64_t qlen_mon_start = 2000000000, qlen_mon_end = 2100000000;
 string qlen_mon_file;
 
+uint32_t link_dump_interval = 100000000, link_mon_interval = 10000;
+uint64_t link_mon_start = 2000000000, link_mon_end = 2100000000;
+string link_mon_file;
+
 unordered_map<uint64_t, uint32_t> rate2kmax, rate2kmin;
 unordered_map<uint64_t, double> rate2pmax;
 
@@ -221,6 +225,72 @@ void monitor_buffer(FILE* qlen_output, NodeContainer *n){
 	}
 	if (Simulator::Now().GetTimeStep() < qlen_mon_end)
 		Simulator::Schedule(NanoSeconds(qlen_mon_interval), &monitor_buffer, qlen_output, n);
+}
+
+struct LinkDistribution{
+	vector<uint32_t> cnt; // cnt[i] is the number of times that link utilization is i Gbps
+
+	void add(uint64_t sent_bytes, uint32_t link_mon_interval){
+		double Gigabit = (double) sent_bytes * 8 / 1000000000.0;
+		double time_seconds = (double) link_mon_interval / 1000000000.0; //ns->seconds
+		int gbps = Gigabit / time_seconds;
+
+		if (cnt.size() < gbps+1)
+			cnt.resize(gbps+1);
+		cnt[gbps]++;
+	}
+	void set_to_zero(){
+		std::fill(cnt.begin(), cnt.end(), 0);
+	}
+	double get_avg(){
+		double total_value = 0.0;
+		double total_cnt = 0.0;
+		for(int i=0; i < cnt.size(); i++){
+			total_value += cnt[i] * i;
+			total_cnt += cnt[i];
+		}
+		return total_cnt == 0 ? 0: total_value/ total_cnt;
+	}
+};
+
+map<uint32_t, map<uint32_t, LinkDistribution> > link_result;
+void monitor_link(FILE* link_output, NodeContainer *n){
+	for (uint32_t i = 0; i < n->GetN(); i++){
+		if (n->Get(i)->GetNodeType() == 1){ // is switch
+			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n->Get(i));
+			if (link_result.find(i) == link_result.end())
+				link_result[i];
+			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
+				uint64_t size = 0;
+				for (uint32_t k = 0; k < SwitchMmu::qCnt; k++){
+					size += sw->m_mmu->egress_bytes_sent_intotal[j][k];
+					//set counter to zero
+					sw->m_mmu->egress_bytes_sent_intotal[j][k] = 0;
+				}
+				link_result[i][j].add(size, link_mon_interval);
+			}
+		}
+	}
+	if (Simulator::Now().GetTimeStep() % link_dump_interval == 0){
+		fprintf(link_output, "time: %lu\n", Simulator::Now().GetTimeStep());
+		for (auto &it0 : link_result)
+			for (auto &it1 : it0.second){
+				fprintf(link_output, "%u %u", it0.first, it1.first);
+
+				double avg_bw = it1.second.get_avg();
+				it1.second.set_to_zero();
+				fprintf(link_output, " %f", avg_bw);
+
+				// auto &dist = it1.second.cnt;
+				// for (uint32_t i = 0; i < dist.size(); i++)
+				// 	fprintf(link_output, " %u", dist[i]);
+				
+				fprintf(link_output, "\n");
+			}
+		fflush(link_output);
+	}
+	if (Simulator::Now().GetTimeStep() < link_mon_end)
+		Simulator::Schedule(NanoSeconds(link_mon_interval), &monitor_link, link_output, n);
 }
 
 void CalculateRoute(Ptr<Node> host){
@@ -647,7 +717,26 @@ int main(int argc, char *argv[])
 			}else if (key.compare("QLEN_MON_END") == 0){
 				conf >> qlen_mon_end;
 				std::cout << "QLEN_MON_END\t\t\t\t" << qlen_mon_end << '\n';
-			}else if (key.compare("MULTI_RATE") == 0){
+			}
+			else if (key.compare("QLEN_DUMP_INTERVAL") == 0){
+				conf >> qlen_dump_interval;
+				std::cout << "QLEN_DUMP_INTERVAL\t\t\t\t" << qlen_dump_interval << '\n';
+			}
+			else if (key.compare("LINK_MON_FILE") == 0){
+				conf >> link_mon_file;
+				std::cout << "LINK_MON_FILE\t\t\t\t" << link_mon_file << '\n';
+			}else if (key.compare("LINK_MON_START") == 0){
+				conf >> link_mon_start;
+				std::cout << "LINK_MON_START\t\t\t\t" << link_mon_start << '\n';
+			}else if (key.compare("LINK_MON_END") == 0){
+				conf >> link_mon_end;
+				std::cout << "LINK_MON_END\t\t\t\t" << link_mon_end << '\n';
+			}
+			else if (key.compare("LINK_DUMP_INTERVAL") == 0){
+				conf >> link_dump_interval;
+				std::cout << "LINK_DUMP_INTERVAL\t\t\t\t" << link_dump_interval << '\n';
+			}
+			else if (key.compare("MULTI_RATE") == 0){
 				int v;
 				conf >> v;
 				multi_rate = v;
@@ -1038,10 +1127,15 @@ int main(int argc, char *argv[])
 		Simulator::Schedule(Seconds(2) + MicroSeconds(link_down_time), &TakeDownLink, n, n.Get(link_down_A), n.Get(link_down_B));
 	}
 
-	// schedule buffer monitor
+	// schedule buffer monitor for queue
 	FILE* qlen_output = fopen(qlen_mon_file.c_str(), "w");
 	Simulator::Schedule(NanoSeconds(qlen_mon_start), &monitor_buffer, qlen_output, &n);
 
+	// schedule link monitor
+	FILE* link_output = fopen(link_mon_file.c_str(), "w");
+	Simulator::Schedule(NanoSeconds(link_mon_start), &monitor_link, link_output, &n);
+
+	
 	//
 	// Now, do the actual simulation.
 	//

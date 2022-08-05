@@ -73,21 +73,44 @@ if __name__=="__main__":
 		# "abcdt32000dl64000token50_1",
 		# "abcdt64000dl64000token50_1",
 
-		# For FCT test
-		#  
+		# # For FCT test
+		# #  
+		# "abcdt0dl16000token30_1",
+		# "abcdt0dl16000token50_1",
+		# "abcdt0dl16000token70_1",
+		# # "abc_slowUnitdt0dl16000token30_1",
+		# # "abc_slowUnitdt0dl16000token50_1",
+		# # "abc_slowUnitdt0dl16000token70_1"
+		# "abcdt32000dl32000token50_1",
+		# "abcdt0dl64000token50_1",
+		# "abcdt16000dl16000token50_1",
+		# "abcdt0dl32000token50_1",
+		# "abcdt64000dl64000token50_1",
+
+		#For eta
+	#   "abcdt0.0dl6000.0token50eta0.85_1",
+	#   "abcdt0.0dl6000.0token50eta0.9_1",
+	#   "abcdt0.0dl6000.0token50eta0.95_1",
+	#   "abcdt0.0dl6000.0token50eta1.0_1",
+	#   "abcdt0.0dl6000.0token50eta1.05_1",
+	#   "abcdt0.0dl6000.0token50eta1.1_1",
+	#  "abcdt0.0dl16000.0token50eta1.05_1",
+	#   "abcdt0.0dl16000.0token50eta1.1_1",
+	 # "abcdt0.0dl16000.0token50eta1.0_1",
+	#  "abcdt0.0dl32000.0token50eta1.0_1",
+	#  "abcdt0.0dl64000.0token50eta1.0_1",
+	#"abcdt0.0dl16000.0token50eta1.05_1",
+	#"abcdt0.0dl16000.0token50eta1.1_1",
+
+	#	"hp95ai80_1",
+		#"abc_slowUnitdt0.0dl8000.0token50eta0.9_1",
+
+		"aabcdt0.0dl16000.0token50eta0.95",
+		#"abcdt0.0dl16000.0token50eta0.95_1"
 
 
-		"abcdt0dl16000token30_1",
-		"abcdt0dl16000token50_1",
-		"abcdt0dl16000token70_1",
-		# "abc_slowUnitdt0dl16000token30_1",
-		# "abc_slowUnitdt0dl16000token50_1",
-		# "abc_slowUnitdt0dl16000token70_1"
-		"abcdt32000dl32000token50_1",
-		"abcdt0dl64000token50_1",
-		"abcdt16000dl16000token50_1",
-		"abcdt0dl32000token50_1",
-		"abcdt64000dl64000token50_1",
+
+
 
 		
 
@@ -131,16 +154,17 @@ if __name__=="__main__":
 		n_1pkt_flow = 1
 		fct_1pkt_flow = 1.0
 		fct_longflow = 1.0
+		long_flow_bytes = 125000000
 		for line in a:
 			if int(line.split()[1]) == 100:
 				n_1pkt_flow += 1
 				fct_1pkt_flow += float(line.split()[0])
-			if int(line.split()[1]) == 125000000:
+			if int(line.split()[1]) == long_flow_bytes:
 				fct_longflow = float(line.split()[0])
 		
 		q_delay  = (fct_1pkt_flow / n_1pkt_flow * 4171 - 4171) / 1000 #us
 		Long_flow_t  = fct_longflow * 10484160 / 1000000000 #s
-		lflow_bw = 125000000 * 8 / 1000000000.0 /Long_flow_t
+		lflow_bw = long_flow_bytes * 8 / 1000000000.0 / Long_flow_t
 		print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
 	
 	for item in res:
