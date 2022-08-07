@@ -307,7 +307,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				m_DqPktSize[ifIndex] += p->GetSize();
 			}
 		}
-		else if (m_ccMode == 5){ //ABC + simplifed Switch
+		else if (m_ccMode == 5){ //ABC (piecewise function to mark brake)
 			uint8_t* buf = p->GetBuffer();
 			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
 				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);

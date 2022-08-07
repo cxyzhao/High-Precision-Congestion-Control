@@ -105,7 +105,9 @@ if __name__=="__main__":
 	#	"hp95ai80_1",
 		#"abc_slowUnitdt0.0dl8000.0token50eta0.9_1",
 
-		"aabcdt0.0dl16000.0token50eta0.95",
+		"aabcdt0.0dl16000.0token50eta1.3",
+		"abcdt0.0dl16000.0token50eta0.7",
+		"hp95ai80"
 		#"abcdt0.0dl16000.0token50eta0.95_1"
 
 
