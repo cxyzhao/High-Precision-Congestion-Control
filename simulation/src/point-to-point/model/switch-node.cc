@@ -319,6 +319,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 
 				double kmax = (delta / 1000000000) * u_t;
 				double kmin = 2100; //2pkt size
+				double p_min = 0.5;
 
 				PppHeader ppp;
 				Ipv4Header h;
@@ -328,7 +329,39 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 				}
 				else if (qLen > kmin){
-					double p = 0.5 * double(qLen - kmin) / (kmax - kmin) + 0.5;
+					double p = (1 - p_min) * double(qLen - kmin) / (kmax - kmin) + p_min;
+					if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
+						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+				}
+				p->AddHeader(h);
+				p->AddHeader(ppp);
+			}
+		}
+		else if (m_ccMode == 6){ //ABC (WRED function to mark brake)
+			uint8_t* buf = p->GetBuffer();
+			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
+				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+				
+				
+				double delta = abc_delta; //nanoseconds
+				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+				double kmax = (delta / 1000000000) * u_t;
+				//(kmin+kmax)/2 = 2pkt_size
+				//kmin is negative
+				double kmin = 2100 * 2.0 - kmax; //2pkt size
+
+				PppHeader ppp;
+				Ipv4Header h;
+				p->RemoveHeader(ppp);
+				p->RemoveHeader(h);
+				if (qLen > kmax) { // Mark Brake
+						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+				}
+				else if (qLen > kmin){
+					double p =  double(qLen - kmin) / (kmax - kmin) ;
 					if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					}

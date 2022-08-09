@@ -72,6 +72,11 @@ LINK_MON_START 2000000000
 LINK_MON_END 3000000000
 LINK_DUMP_INTERVAL 1000000
 
+OUTFLOW_MON_FILE mix/outflow_{topo}_{trace}_ackHigh{ack_prio}_{cc}{failure}.txt
+OUTFLOW_MON_START 2000000000
+OUTFLOW_MON_END 3000000000
+OUTFLOW_DUMP_INTERVAL 100000
+
 SLOW_UNIT {slow_unit}
 """
 if __name__ == "__main__":
@@ -121,9 +126,9 @@ if __name__ == "__main__":
 
 	config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, args.cc, failure)
 
-	kmax_map = "2 %d %d %d %d"%(bw*1000000000, 400*bw/25, bw*4*1000000000, 400*bw*4/25)
-	kmin_map = "2 %d %d %d %d"%(bw*1000000000, 100*bw/25, bw*4*1000000000, 100*bw*4/25)
-	pmax_map = "2 %d %.2f %d %.2f"%(bw*1000000000, 0.2, bw*4*1000000000, 0.2)
+	kmax_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 400*bw/25, bw*2*1000000000, 400*bw*2/25, bw*4*1000000000, 400*bw*4/25)
+	kmin_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 100*bw/25, bw*2*1000000000, 100*bw*2/25, bw*4*1000000000, 100*bw*4/25)
+	pmax_map = "3 %d %.2f %d %.2f %d %.2f"%(bw*1000000000, 0.2, bw*2*1000000000, 0.2, bw*4*1000000000, 0.2)
 	if (args.cc.startswith("dcqcn")):
 		ai = 5 * bw / 25
 		hai = 50 * bw /25
@@ -147,15 +152,32 @@ if __name__ == "__main__":
 		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
 		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=0)
 	elif args.cc == "aabc":
-		#cc_mode = 9
+		#cc_mode = 5
 		ai = 5 * bw / 25
 		hai = 50 * bw /25
 		cc = args.cc
 		if (slow_unit):
 			cc += "_slowUnit"
 		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
+		ratebound = 0
+		if (ratebound):
+			cc+= "rb"
 		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=5, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=0)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=5, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=ratebound)
+	elif args.cc == "rabc":
+		#ABC + WRED
+		#cc_mode = 5
+		ai = 5 * bw / 25
+		hai = 50 * bw /25
+		cc = args.cc
+		if (slow_unit):
+			cc += "_slowUnit"
+		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
+		ratebound = 0
+		if (ratebound):
+			cc+= "rb"
+		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=6, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=ratebound)
 	elif args.cc == "hp":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -173,9 +195,11 @@ if __name__ == "__main__":
 		ai = 10 # ai is useless for dctcp
 		hai = ai  # also useless
 		dctcp_ai=615 # calculated from RTT=13us and MTU=1KB, because DCTCP add 1 MTU per RTT.
-		kmax_map = "2 %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*4*1000000000, 30*bw*4/10)
-		kmin_map = "2 %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*4*1000000000, 30*bw*4/10)
-		pmax_map = "2 %d %.2f %d %.2f"%(bw*1000000000, 1.0, bw*4*1000000000, 1.0)
+		kmax_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
+		kmin_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
+		pmax_map = "3 %d %.2f %d %.2f %d %.2f"%(bw*1000000000, 1.0, bw*2*1000000000, 1.0, bw*4*1000000000, 1.0)
+		
+		
 		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
 	elif args.cc == "timely":
 		ai = 10 * bw / 10;

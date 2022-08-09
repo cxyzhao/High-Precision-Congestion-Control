@@ -87,6 +87,11 @@ uint32_t link_dump_interval = 100000000, link_mon_interval = 10000;
 uint64_t link_mon_start = 2000000000, link_mon_end = 2100000000;
 string link_mon_file;
 
+
+uint32_t outflow_dump_interval = 100000000;
+uint64_t outflow_mon_start = 2000000000, outflow_mon_end = 2100000000;
+string outflow_mon_file;
+
 unordered_map<uint64_t, uint32_t> rate2kmax, rate2kmin;
 unordered_map<uint64_t, double> rate2pmax;
 
@@ -120,6 +125,9 @@ map<uint32_t, map<uint32_t, uint64_t> > pairBw;
 map<Ptr<Node>, map<Ptr<Node>, uint64_t> > pairBdp;
 map<uint32_t, map<uint32_t, uint64_t> > pairRtt;
 
+// Counters to record the numebr of outstanding flows
+map<uint32_t, map<uint32_t, uint32_t> > pairOutflow;
+
 std::vector<Ipv4Address> serverAddress;
 
 // maintain port number for each host pair
@@ -144,6 +152,7 @@ void ScheduleFlowInputs(){
 		uint32_t port = portNumder[flow_input.src][flow_input.dst]++; // get a new port number 
 		RdmaClientHelper clientHelper(flow_input.pg, serverAddress[flow_input.src], serverAddress[flow_input.dst], port, flow_input.dport, flow_input.maxPacketCount, has_win?(global_t==1?maxBdp:pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)]):0, global_t==1?maxRtt:pairRtt[flow_input.src][flow_input.dst]);
 		ApplicationContainer appCon = clientHelper.Install(n.Get(flow_input.src));
+		pairOutflow[flow_input.src][flow_input.dst] += 1;
 		appCon.Start(Time(0));
 
 		// get the next flow input
@@ -175,6 +184,7 @@ void qp_finish(FILE* fout, Ptr<RdmaQueuePair> q){
 	// sip, dip, sport, dport, size (B), start_time, fct (ns), standalone_fct (ns)
 	fprintf(fout, "%08x %08x %u %u %lu %lu %lu %lu\n", q->sip.Get(), q->dip.Get(), q->sport, q->dport, q->m_size, q->startTime.GetTimeStep(), (Simulator::Now() - q->startTime).GetTimeStep(), standalone_fct);
 	fflush(fout);
+	pairOutflow[sid][did] -= 1;
 
 	// remove rxQp from the receiver
 	Ptr<Node> dstNode = n.Get(did);
@@ -291,6 +301,21 @@ void monitor_link(FILE* link_output, NodeContainer *n){
 	}
 	if (Simulator::Now().GetTimeStep() < link_mon_end)
 		Simulator::Schedule(NanoSeconds(link_mon_interval), &monitor_link, link_output, n);
+}
+
+void monitor_outflow(FILE* outflow_output, NodeContainer *n){
+	if (Simulator::Now().GetTimeStep() % outflow_dump_interval == 0){
+		fprintf(outflow_output, "time: %lu\n", Simulator::Now().GetTimeStep());
+		for (auto &it0 : pairOutflow)
+			for (auto &it1 : it0.second){
+				fprintf(outflow_output, "%u %u", it0.first, it1.first);
+				fprintf(outflow_output, " %d", pairOutflow[it0.first][it1.first]);
+				fprintf(outflow_output, "\n");
+			}
+		fflush(outflow_output);
+	}
+	if (Simulator::Now().GetTimeStep() < outflow_mon_end)
+		Simulator::Schedule(NanoSeconds(outflow_dump_interval), &monitor_outflow, outflow_output, n);
 }
 
 void CalculateRoute(Ptr<Node> host){
@@ -717,8 +742,7 @@ int main(int argc, char *argv[])
 			}else if (key.compare("QLEN_MON_END") == 0){
 				conf >> qlen_mon_end;
 				std::cout << "QLEN_MON_END\t\t\t\t" << qlen_mon_end << '\n';
-			}
-			else if (key.compare("QLEN_DUMP_INTERVAL") == 0){
+			}else if (key.compare("QLEN_DUMP_INTERVAL") == 0){
 				conf >> qlen_dump_interval;
 				std::cout << "QLEN_DUMP_INTERVAL\t\t\t\t" << qlen_dump_interval << '\n';
 			}
@@ -731,12 +755,22 @@ int main(int argc, char *argv[])
 			}else if (key.compare("LINK_MON_END") == 0){
 				conf >> link_mon_end;
 				std::cout << "LINK_MON_END\t\t\t\t" << link_mon_end << '\n';
-			}
-			else if (key.compare("LINK_DUMP_INTERVAL") == 0){
+			}else if (key.compare("LINK_DUMP_INTERVAL") == 0){
 				conf >> link_dump_interval;
 				std::cout << "LINK_DUMP_INTERVAL\t\t\t\t" << link_dump_interval << '\n';
-			}
-			else if (key.compare("MULTI_RATE") == 0){
+			}else if (key.compare("OUTFLOW_MON_FILE") == 0){
+				conf >> outflow_mon_file;
+				std::cout << "OUTFLOW_MON_FILE\t\t\t\t" << outflow_mon_file << '\n';
+			}else if (key.compare("OUTFLOW_MON_START") == 0){
+				conf >> outflow_mon_start;
+				std::cout << "OUTFLOW_MON_START\t\t\t\t" << outflow_mon_start << '\n';
+			}else if (key.compare("OUTFLOW_MON_END") == 0){
+				conf >> outflow_mon_end;
+				std::cout << "OUTFLOW_MON_END\t\t\t\t" << outflow_mon_end << '\n';
+			}else if (key.compare("OUTFLOW_DUMP_INTERVAL") == 0){
+				conf >> outflow_dump_interval;
+				std::cout << "OUTFLOW_DUMP_INTERVAL\t\t\t\t" << outflow_dump_interval << '\n';
+			}else if (key.compare("MULTI_RATE") == 0){
 				int v;
 				conf >> v;
 				multi_rate = v;
@@ -1040,6 +1074,7 @@ int main(int argc, char *argv[])
 			uint64_t bdp = rtt * bw / 1000000000/8; 
 			pairBdp[n.Get(i)][n.Get(j)] = bdp;
 			pairRtt[i][j] = rtt;
+			pairOutflow[i][j] = 0;
 			if (bdp > maxBdp)
 				maxBdp = bdp;
 			if (rtt > maxRtt)
@@ -1134,6 +1169,10 @@ int main(int argc, char *argv[])
 	// schedule link monitor
 	FILE* link_output = fopen(link_mon_file.c_str(), "w");
 	Simulator::Schedule(NanoSeconds(link_mon_start), &monitor_link, link_output, &n);
+
+	// schedule outflow monitor
+	FILE* outflow_output = fopen(outflow_mon_file.c_str(), "w");
+	Simulator::Schedule(NanoSeconds(outflow_mon_start), &monitor_outflow, outflow_output, &n);
 
 	
 	//

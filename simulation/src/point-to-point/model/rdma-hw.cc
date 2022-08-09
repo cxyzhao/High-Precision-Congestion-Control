@@ -324,7 +324,7 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		seqh.SetIntHeader(ch.udp.ih);
-		if (m_cc_mode == 9 || m_cc_mode == 5){ // ABC
+		if (m_cc_mode == 9 || m_cc_mode == 5 || m_cc_mode == 6){ // ABC
 			if (ecnbits == 0x2) //brake
 				seqh.SetCnp();
 		}
@@ -442,7 +442,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 		HandleAckDctcp(qp, p, ch);
 	}else if (m_cc_mode == 10){
 		HandleAckHpPint(qp, p, ch);
-	}else if (m_cc_mode == 9 || m_cc_mode == 5){
+	}else if (m_cc_mode == 9 || m_cc_mode == 5 || m_cc_mode == 6){
 		//ABC or ABC(simplified ECN)
 		HandleAckAbc(qp, p, ch);
 	}

@@ -14,6 +14,7 @@ if __name__=="__main__":
 	parser.add_argument('-t', dest='type', action='store', type=int, default=0, help="0: normal, 1: incast, 2: all")
 	parser.add_argument('-T', dest='time_limit', action='store', type=int, default=3000000000, help="only consider flows that finish before T")
 	parser.add_argument('-b', dest='bw', action='store', type=int, default=25, help="bandwidth of edge link (Gbps)")
+	parser.add_argument('-c', dest='single_cc', action='store', default='', help="single cc to parse")
 	args = parser.parse_args()
 
 	type = args.type
@@ -105,10 +106,42 @@ if __name__=="__main__":
 	#	"hp95ai80_1",
 		#"abc_slowUnitdt0.0dl8000.0token50eta0.9_1",
 
-		"aabcdt0.0dl16000.0token50eta1.3",
-		"abcdt0.0dl16000.0token50eta0.7",
-		"hp95ai80"
+
+		# "hp95ai80",
+		# "dcqcn",
+		# "timely",
+		# # "dctcp",
+		# "abcdt0.0dl12000.0token50eta0.95",
+		# "aabcdt0.0dl12000.0token50eta0.95",
+		# "rabcdt0.0dl12000.0token50eta0.95",
+
+		# "aabcdt0.0dl12000.0token50eta0.95",
+		# #"aabcdt0.0dl12000.0token50eta0.95rb",
+		# "rabcdt0.0dl12000.0token50eta0.95",
 		#"abcdt0.0dl16000.0token50eta0.95_1"
+
+		#  "abcdt0.0dl12000.0token50eta0.7",
+		#   "abcdt0.0dl12000.0token50eta0.8",
+		#    "abcdt0.0dl12000.0token50eta0.9",
+		#     "abcdt0.0dl12000.0token50eta0.95",
+		# 	 "abcdt0.0dl12000.0token50eta1.0",
+		# 	 "abcdt0.0dl12000.0token50eta1.1",
+		# 	 "abcdt0.0dl12000.0token50eta1.2",
+		# 	 "abcdt0.0dl12000.0token50eta1.3",
+
+   	#  "aabcdt0.0dl8000.0token50eta0.95",
+	#  "aabcdt0.0dl12000.0token50eta0.95",
+	#  "aabcdt0.0dl16000.0token50eta0.95",
+	#  "aabcdt0.0dl8000.0token50eta0.95rb",
+	#  "aabcdt0.0dl12000.0token50eta0.95rb",
+	#  "aabcdt0.0dl16000.0token50eta0.95rb",
+"hp95ai80",
+	"dcqcn", 
+           "timely", 
+            
+           "abcdt0.0dl12000.0token50eta0.95", 
+           "aabcdt0.0dl12000.0token50eta0.95",
+          "rabcdt0.0dl12000.0token50eta0.95"
 
 
 
@@ -117,6 +150,8 @@ if __name__=="__main__":
 		
 
 	]
+	if len(args.single_cc) != 0 :
+		CCs = [args.single_cc]
 
 	step = int(args.step)
 	res = [[i/100.] for i in range(0, 100, step)]
@@ -169,6 +204,7 @@ if __name__=="__main__":
 		lflow_bw = long_flow_bytes * 8 / 1000000000.0 / Long_flow_t
 		print("%s %.2f %.2f" % (cc, q_delay, lflow_bw))
 	
+	print("FCT")
 	for item in res:
 		#line = "%.3f %d"%(item[0], item[1])
 		line = "%d,"%(item[1])
