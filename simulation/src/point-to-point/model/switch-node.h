@@ -43,6 +43,9 @@ protected:
 	double abc_eta;
 	double abc_tokenLimit;
 	double abc_token = 0;
+	int abc_dqInterval = 0;
+	int abc_tokenMinBound = 0; 
+	int abc_markmode = 1;
 
 	uint32_t m_ackHighPrio; // set high priority for ACK/NACK
 

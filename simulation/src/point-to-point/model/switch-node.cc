@@ -5,6 +5,7 @@
 #include "ns3/flow-id-tag.h"
 #include "ns3/boolean.h"
 #include "ns3/uinteger.h"
+#include "ns3/integer.h"
 #include "ns3/double.h"
 #include "switch-node.h"
 #include "qbb-net-device.h"
@@ -60,6 +61,21 @@ TypeId SwitchNode::GetTypeId (void)
 			DoubleValue(0.95),
 			MakeDoubleAccessor(&SwitchNode::abc_eta),
 			MakeDoubleChecker<double>())
+	.AddAttribute("AbcDqInterval",
+			"ABC time interval to calculate dequeue rate",
+			IntegerValue(1000),
+			MakeIntegerAccessor(&SwitchNode::abc_dqInterval),
+			MakeIntegerChecker<int>())
+	.AddAttribute("AbcTokenMinBound",
+			"ABC uses min to bound token",
+			IntegerValue(1),
+			MakeIntegerAccessor(&SwitchNode::abc_tokenMinBound),
+			MakeIntegerChecker<int>())
+	.AddAttribute("AbcMarkMode",
+			"ABC mode to mark brake",
+			IntegerValue(1),
+			MakeIntegerAccessor(&SwitchNode::abc_markmode),
+			MakeIntegerChecker<int>())
 	
   ;
   return tid;
@@ -231,143 +247,132 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 		if (m_ccMode == 9){ //ABC
 			uint8_t* buf = p->GetBuffer();
 			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
-				double tr_t = 1.0; // target rate
-				double yita = 0.95; //eta
-				double delta = abc_delta; //nanoseconds
-				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
-				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
-				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
-				double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
+				if(abc_markmode == 1){ //Vanilla ABC
+					//Count current pkt as DqPktSize
+					m_DqPktSize[ifIndex] += p->GetSize();
+
+					double tr_t = 1.0; // target rate
+					double yita = 0.95; //eta
+					double delta = abc_delta; //nanoseconds
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
 
 
-				double d_t = abc_dt; // nanoseconds
-				tr_t = abc_eta * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
+					double d_t = abc_dt; // nanoseconds
+					tr_t = abc_eta * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
 
-			
+				
 
-				double cr_t = 1.0; // dequeue rate Bps
-				uint64_t t = Simulator::Now().GetTimeStep();
-				double dt = t - m_lastUpdateDqRateTs[ifIndex];
-				if (dt > 1000){ // update dqRate per 1us
+					double cr_t = 1.0; // dequeue rate Bps
+					uint64_t t = Simulator::Now().GetTimeStep();
+					double dt = t - m_lastUpdateDqRateTs[ifIndex];
+					double update_interval = abc_dqInterval;
 
-					if (m_DqPktSize[ifIndex] == 0){
-						dqRate[ifIndex] = 0.0;
-					}
-					else{
+					if (dt > update_interval){ // update dqRate per x ns
 						dqRate[ifIndex] = m_DqPktSize[ifIndex] / (dt/1000000000); // Bps
+						m_DqPktSize[ifIndex] = 0;
+						m_lastUpdateDqRateTs[ifIndex] = t;
 					}
-					m_DqPktSize[ifIndex] = 0;
-					m_lastUpdateDqRateTs[ifIndex] = t;
-				}
-				cr_t  = dqRate[ifIndex];
-			
-				double f_t = std::min(0.5 * tr_t / cr_t, 1.0);
-
-				PppHeader ppp;
-				Ipv4Header h;
-				p->RemoveHeader(ppp);
-				p->RemoveHeader(h);
+					cr_t  = dqRate[ifIndex];
 				
-				//printf("%ld, %ld, queueing delay %f, %f, %f %f %f %s\n", m_DqPktSize[ifIndex], t, x_t, dt, tr_t, cr_t, f_t, h.EcnTypeToString(h.GetEcn()).c_str());
-				
-				//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
+					double f_t; 
+					if(abc_tokenMinBound)
+						f_t  = std::min(0.5 * tr_t / cr_t, 1.0);
+					else 
+						f_t  = 0.5 * tr_t / cr_t;
 
-				double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
-				abc_token = std::min(abc_token + f_t, tokenLimit);
-
-				if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
-					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-					p->AddHeader(h);
-					p->AddHeader(ppp);
-				}
-				else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
-					//printf("%f \n", abc_token);
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
 					
-					if (abc_token > 1.0){
-						abc_token -= 1.0;
-						//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
-						//Mark Accelerate
-						h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
-						p->AddHeader(h);
-						p->AddHeader(ppp);
-					}
-					else{
-						//Mark brake
-						//printf("Switch to Brake, %f %f %f \n", qLen, abc_token, f_t);
+					//printf("%ld, %ld, queueing delay %f, %f, %f %f %f %s\n", m_DqPktSize[ifIndex], t, x_t, dt, tr_t, cr_t, f_t, h.EcnTypeToString(h.GetEcn()).c_str());
+					
+					//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
+
+					double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
+					abc_token = std::min(abc_token + f_t, tokenLimit);
+
+					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-						p->AddHeader(h);
-						p->AddHeader(ppp);
 					}
+					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
+						//printf("%f \n", abc_token);
+						if (abc_token > 1.0){
+							abc_token -= 1.0;
+							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
+							//Mark Accelerate
+							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+						}
+						else{
+							//Mark brake
+							//printf("Switch to Brake, %f %f %f \n", qLen, abc_token, f_t);
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+					//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
+					//m_DqPktSize[ifIndex] += p->GetSize();
 				}
-				else{
+				else if(abc_markmode == 2){//Piecewise function to mark
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double delta = abc_delta; //nanoseconds
+					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+					double kmax = (delta / 1000000000) * u_t;
+					double kmin = 2100; //2pkt size
+					double p_min = 0.5;
+
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					if (qLen > kmax) { // Mark Brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+					else if (qLen > kmin){
+						double p = (1 - p_min) * double(qLen - kmin) / (kmax - kmin) + p_min;
+						if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+				
+				}
+				else if(abc_markmode == 3){ //WRED function to mark
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					
+					
+					double delta = abc_delta; //nanoseconds
+					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+					double kmax = (delta / 1000000000) * u_t;
+					//(kmin+kmax)/2 = 2pkt_size
+					//kmin is negative
+					double kmin = 2100 * 2.0 - kmax; //2pkt size
+
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					if (qLen > kmax) { // Mark Brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+					else if (qLen > kmin){
+						double p =  double(qLen - kmin) / (kmax - kmin) ;
+						if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
-				//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
-				m_DqPktSize[ifIndex] += p->GetSize();
-			}
-		}
-		else if (m_ccMode == 5){ //ABC (piecewise function to mark brake)
-			uint8_t* buf = p->GetBuffer();
-			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
-				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
-				
-				
-				double delta = abc_delta; //nanoseconds
-				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
-				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
-
-				double kmax = (delta / 1000000000) * u_t;
-				double kmin = 2100; //2pkt size
-				double p_min = 0.5;
-
-				PppHeader ppp;
-				Ipv4Header h;
-				p->RemoveHeader(ppp);
-				p->RemoveHeader(h);
-				if (qLen > kmax) { // Mark Brake
-						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-				}
-				else if (qLen > kmin){
-					double p = (1 - p_min) * double(qLen - kmin) / (kmax - kmin) + p_min;
-					if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
-						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-					}
-				}
-				p->AddHeader(h);
-				p->AddHeader(ppp);
-			}
-		}
-		else if (m_ccMode == 6){ //ABC (WRED function to mark brake)
-			uint8_t* buf = p->GetBuffer();
-			if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
-				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
-				
-				
-				double delta = abc_delta; //nanoseconds
-				double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
-				double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
-
-				double kmax = (delta / 1000000000) * u_t;
-				//(kmin+kmax)/2 = 2pkt_size
-				//kmin is negative
-				double kmin = 2100 * 2.0 - kmax; //2pkt size
-
-				PppHeader ppp;
-				Ipv4Header h;
-				p->RemoveHeader(ppp);
-				p->RemoveHeader(h);
-				if (qLen > kmax) { // Mark Brake
-						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-				}
-				else if (qLen > kmin){
-					double p =  double(qLen - kmin) / (kmax - kmin) ;
-					if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
-						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
-					}
-				}
-				p->AddHeader(h);
-				p->AddHeader(ppp);
 			}
 		}
 		else if (m_ecnEnabled){ //Other CC_Mode to process ECN

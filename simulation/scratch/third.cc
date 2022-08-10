@@ -44,6 +44,7 @@ NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
 double abc_dt, abc_delta, abc_token, abc_eta;
+int abc_dqinterval, abc_tokenminbound, abc_markmode;
 bool enable_qcn = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -803,6 +804,18 @@ int main(int argc, char *argv[])
 				conf >> abc_eta;
 				std::cout << "ABC_ETA\t\t\t\t" << abc_eta << '\n';
 			}
+			else if (key.compare("ABC_DQINTERVAL") == 0){
+				conf >> abc_dqinterval;
+				std::cout << "ABC_DQINTERVAL\t\t\t\t" << abc_dqinterval << '\n';
+			}
+			else if (key.compare("ABC_TOKENMINBOUND") == 0){
+				conf >> abc_tokenminbound;
+				std::cout << "ABC_TOKENMINBOUND\t\t\t\t" << abc_tokenminbound << '\n';
+			}
+			else if (key.compare("ABC_MARKMODE") == 0){
+				conf >> abc_markmode;
+				std::cout << "ABC_MARKMODE\t\t\t\t" << abc_markmode << '\n';
+			}
 			fflush(stdout);
 		}
 		conf.close();
@@ -1096,6 +1109,9 @@ int main(int argc, char *argv[])
 			sw->SetAttribute("AbcDelta", DoubleValue(abc_delta));
 			sw->SetAttribute("AbcToken", DoubleValue(abc_token));
 			sw->SetAttribute("AbcEta", DoubleValue(abc_eta));
+			sw->SetAttribute("AbcDqInterval", IntegerValue(abc_dqinterval));
+			sw->SetAttribute("AbcTokenMinBound", IntegerValue(abc_tokenminbound));
+			sw->SetAttribute("AbcMarkMode", IntegerValue(abc_markmode));
 		}
 	}
 

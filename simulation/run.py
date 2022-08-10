@@ -45,11 +45,6 @@ SAMPLE_FEEDBACK 0
 PINT_LOG_BASE {pint_log_base}
 PINT_PROB {pint_prob}
 
-ABC_DT {abc_dt}
-ABC_DELTA {abc_delta}
-ABC_TOKEN {abc_token}
-ABC_ETA {abc_eta}
-
 RATE_BOUND {rate_bound}
 
 ACK_HIGH_PRIO {ack_prio}
@@ -77,8 +72,19 @@ OUTFLOW_MON_START 2000000000
 OUTFLOW_MON_END 3000000000
 OUTFLOW_DUMP_INTERVAL 100000
 
-SLOW_UNIT {slow_unit}
 """
+
+abc_config_template = """
+ABC_DT {abc_dt}
+ABC_DELTA {abc_delta}
+ABC_TOKEN {abc_token}
+ABC_ETA {abc_eta}
+ABC_DQINTERVAL {abc_dqinterval}
+ABC_TOKENMINBOUND {abc_tokenminbound}
+SLOW_UNIT {slow_unit}
+ABC_MARKMODE {abc_markmode}
+"""
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='run simulation')
 	parser.add_argument('--cc', dest='cc', action='store', default='hp', help="hp/dcqcn/timely/dctcp/hpccPint/abc")
@@ -98,6 +104,11 @@ if __name__ == "__main__":
 	parser.add_argument('--abc_delta', dest='abc_delta', action='store', type=float, default=64000, help="ABC delta value (ns)")
 	parser.add_argument('--abc_eta', dest='abc_eta', action='store', type=float, default=0.95, help="ABC eta to calculate tr")
 	parser.add_argument('--abc_token', dest='abc_token', action='store', type=int, default=50, help="ABC token limit")
+	parser.add_argument('--abc_dqinterval', dest='abc_dqinterval', action='store', type=int, default=1000, help="ABC time interval to calculate dq rate")
+	parser.add_argument('--abc_tokenminbound', dest='abc_tokenminbound', action='store', type=int, default=1, help="ABC use min to bound token")
+	parser.add_argument('--abc_ratebound', dest='abc_ratebound', action='store', type=int, default=1, help="ABC rate bound to pace")
+	parser.add_argument('--abc_markmode', dest='abc_markmode', action='store', type=int, default=1, help="ABC mode to mark brake 1vanilla/2piecewise/3wred")
+	
 	args = parser.parse_args()
 
 	topo=args.topo
@@ -119,6 +130,10 @@ if __name__ == "__main__":
 	abc_delta = args.abc_delta
 	abc_token = args.abc_token
 	abc_eta = args.abc_eta
+	abc_tokenminbound = args.abc_tokenminbound
+	abc_dqinterval = args.abc_dqinterval
+	abc_ratebound = args.abc_ratebound
+	abc_markmode = args.abc_markmode
 
 	failure = ''
 	if args.down != '0 0 0':
@@ -134,13 +149,13 @@ if __name__ == "__main__":
 		hai = 50 * bw /25
 
 		if args.cc == "dcqcn":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 		elif args.cc == "dcqcn_paper":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 		elif args.cc == "dcqcn_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 		elif args.cc == "dcqcn_paper_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	elif args.cc == "abc":
 		#cc_mode = 9
 		ai = 5 * bw / 25
@@ -148,36 +163,59 @@ if __name__ == "__main__":
 		cc = args.cc
 		if (slow_unit):
 			cc += "_slowUnit"
-		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
-		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=9, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=0)
-	elif args.cc == "aabc":
-		#cc_mode = 5
-		ai = 5 * bw / 25
-		hai = 50 * bw /25
-		cc = args.cc
-		if (slow_unit):
-			cc += "_slowUnit"
-		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
-		ratebound = 0
-		if (ratebound):
+		cc += "dt{}dl{}token{}eta{}mark{}".format(abc_dt, abc_delta, abc_token, abc_eta, abc_markmode)
+		if(abc_tokenminbound ==0):
+			cc+= "noTkMin"
+		if (abc_dqinterval == 0):
+			cc+= "dq0"
+		if (abc_ratebound):
 			cc+= "rb"
 		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=5, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=ratebound)
-	elif args.cc == "rabc":
-		#ABC + WRED
-		#cc_mode = 5
-		ai = 5 * bw / 25
-		hai = 50 * bw /25
-		cc = args.cc
-		if (slow_unit):
-			cc += "_slowUnit"
-		cc += "dt{}dl{}token{}eta{}".format(abc_dt, abc_delta, abc_token, abc_eta)
-		ratebound = 0
-		if (ratebound):
-			cc+= "rb"
-		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=6, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=ratebound)
+		base_config_dict = {
+			'bw': bw,
+			'trace' : trace,
+			'topo': topo,
+			'cc': cc,
+			'mode': 9,
+			't_alpha': 1, 
+			't_dec': 4,
+			't_inc': 300,
+			'g': 0.00390625, 
+			'ai': ai,
+			'hai': hai,
+			'dctcp_ai': 1000,
+			'has_win': 1,
+			'vwin': 1, 
+			'us': 0,
+			'u_tgt': u_tgt,
+			'mi': mi,
+			'int_multi': 1, 
+			'pint_log_base':pint_log_base, 
+			'pint_prob': pint_prob, 
+			'ack_prio': ack_highprio, 
+			'link_down': args.down, 
+			'failure': failure, 
+			'kmax_map': kmax_map, 
+			'kmin_map':kmin_map, 
+			'pmax_map': pmax_map,
+			'buffer_size': bfsz, 
+			'enable_tr': enable_tr, 
+			'rate_bound': abc_ratebound, 
+		}
+		base_config = config_template.format(**base_config_dict)
+		
+		abc_config_dict = {
+			'slow_unit': slow_unit, 
+			'abc_dt': abc_dt, 
+			'abc_delta': abc_delta, 
+			'abc_token': abc_token, 
+			'abc_eta': abc_eta,  
+			'abc_dqinterval': abc_dqinterval, 
+			'abc_tokenminbound':abc_tokenminbound,
+			'abc_markmode': abc_markmode
+		}
+		abc_config = abc_config_template.format(**abc_config_dict)
+		config = base_config + abc_config
 	elif args.cc == "hp":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -190,7 +228,7 @@ if __name__ == "__main__":
 		if args.hpai > 0:
 			cc += "ai%d"%ai
 		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	elif args.cc == "dctcp":
 		ai = 10 # ai is useless for dctcp
 		hai = ai  # also useless
@@ -198,17 +236,15 @@ if __name__ == "__main__":
 		kmax_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
 		kmin_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
 		pmax_map = "3 %d %.2f %d %.2f %d %.2f"%(bw*1000000000, 1.0, bw*2*1000000000, 1.0, bw*4*1000000000, 1.0)
-		
-		
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	elif args.cc == "timely":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	elif args.cc == "timely_vwin":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	elif args.cc == "hpccPint":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -223,7 +259,7 @@ if __name__ == "__main__":
 		cc += "log%.3f"%pint_log_base
 		cc += "p%.3f"%pint_prob
 		config_name = "mix/config_%s_%s_ackHigh%d_%s%s.txt"%(topo, trace, ack_highprio, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, slow_unit=slow_unit, abc_dt=abc_dt, abc_delta=abc_delta, abc_token=abc_token, abc_eta=abc_eta, rate_bound=1)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1)
 	else:
 		print "unknown cc:", args.cc
 		sys.exit(1)
