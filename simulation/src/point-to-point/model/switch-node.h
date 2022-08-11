@@ -30,9 +30,7 @@ class SwitchNode : public Node{
 	// Record to calculate dequeue rate
 	uint64_t m_lastUpdateDqRateTs[pCnt]; // ns
 	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
-	double dqRate[pCnt]; // dequeue rate
 
-	
 
 protected:
 	bool m_ecnEnabled;
@@ -57,6 +55,18 @@ private:
 	void CheckAndSendResume(uint32_t inDev, uint32_t qIndex);
 public:
 	Ptr<SwitchMmu> m_mmu;
+
+	double dqRate[pCnt][qCnt]; // dequeue rate
+
+	// counter of tx bytes
+	uint64_t m_txBytes_all[pCnt]; 
+	uint64_t m_txBytes_udp[pCnt]; 
+	uint64_t m_txBytes_udp_wholeheader[pCnt]; 
+	uint64_t m_txBytes_udp_intheader[pCnt]; 
+	uint64_t m_txBytes_ack[pCnt]; 
+	uint64_t m_txBytes_ack_wholeheader[pCnt]; 
+	uint64_t m_txBytes_ack_intheader[pCnt]; 
+
 
 	static TypeId GetTypeId (void);
 	SwitchNode();

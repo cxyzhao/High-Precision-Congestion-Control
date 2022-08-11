@@ -93,15 +93,22 @@ SwitchNode::SwitchNode(){
 		for (uint32_t j = 0; j < pCnt; j++)
 			for (uint32_t k = 0; k < qCnt; k++)
 				m_bytes[i][j][k] = 0;
-	for (uint32_t i = 0; i < pCnt; i++)
+	for (uint32_t i = 0; i < pCnt; i++){
 		m_txBytes[i] = 0;
+		m_txBytes_all[i] = 0;
+		m_txBytes_udp[i] = m_txBytes_udp_wholeheader[i] = m_txBytes_ack_intheader[i] = 0;
+		m_txBytes_ack[i] = m_txBytes_ack_wholeheader[i] = m_txBytes_ack_intheader[i] = 0;
+	}
 	for (uint32_t i = 0; i < pCnt; i++)
 		m_lastPktSize[i] = m_lastPktTs[i] = 0;
 	for (uint32_t i = 0; i < pCnt; i++)
 		m_u[i] = 0;
 	for (uint32_t i = 0; i < pCnt; i++)
-		m_lastUpdateDqRateTs[i] = m_DqPktSize[i] = dqRate[i] =0;
-}
+		m_lastUpdateDqRateTs[i] = m_DqPktSize[i]  =0;
+	for (uint32_t i = 0; i < pCnt; i++)
+		for (uint32_t j = 0; j < qCnt; j++)
+			dqRate[i][j] = 0.0;
+ }
 
 int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 	// look up entries
@@ -265,17 +272,17 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 
 				
 
-					double cr_t = 1.0; // dequeue rate Bps
+					double cr_t = 1.0; // dequeue rate BytesPerSecond
 					uint64_t t = Simulator::Now().GetTimeStep();
 					double dt = t - m_lastUpdateDqRateTs[ifIndex];
 					double update_interval = abc_dqInterval;
 
 					if (dt > update_interval){ // update dqRate per x ns
-						dqRate[ifIndex] = m_DqPktSize[ifIndex] / (dt/1000000000); // Bps
+						dqRate[ifIndex][qIndex] = m_DqPktSize[ifIndex] / (dt/1000000000); // Bps
 						m_DqPktSize[ifIndex] = 0;
 						m_lastUpdateDqRateTs[ifIndex] = t;
 					}
-					cr_t  = dqRate[ifIndex];
+					cr_t  = dqRate[ifIndex][qIndex];
 				
 					double f_t; 
 					if(abc_tokenMinBound)
@@ -344,7 +351,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(ppp);
 				
 				}
-				else if(abc_markmode == 3){ //WRED function to mark
+				else if(abc_markmode == 3 || abc_markmode == 4){ //WRED function to mark
 					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 					
 					
@@ -355,7 +362,12 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					double kmax = (delta / 1000000000) * u_t;
 					//(kmin+kmax)/2 = 2pkt_size
 					//kmin is negative
-					double kmin = 2100 * 2.0 - kmax; //2pkt size
+					
+					double kmin;
+					if (abc_markmode == 3)
+						kmin = 2100 * 2.0 - kmax; //2pkt size
+					else if (abc_markmode == 4)
+						kmin = 0.0;
 
 					PppHeader ppp;
 					Ipv4Header h;
@@ -478,6 +490,24 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 	m_txBytes[ifIndex] += p->GetSize();
 	m_lastPktSize[ifIndex] = p->GetSize();
 	m_lastPktTs[ifIndex] = Simulator::Now().GetTimeStep();
+
+
+	CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+
+	m_txBytes_all[ifIndex] += p->GetSize();
+	uint8_t* buf = p->GetBuffer();
+	if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // UDP pkts
+		m_txBytes_udp[ifIndex] += p->GetSize();
+		m_txBytes_udp_wholeheader[ifIndex] +=  ch.GetStaticWholeHeaderSize();
+		m_txBytes_udp_intheader[ifIndex] += IntHeader::GetStaticSize();
+	}
+	else{
+		m_txBytes_ack[ifIndex] += p->GetSize();
+		m_txBytes_ack_wholeheader[ifIndex] +=  ch.GetStaticWholeHeaderSize();
+		m_txBytes_ack_intheader[ifIndex] += IntHeader::GetStaticSize();
+	}
+	
+	
 }
 
 int SwitchNode::logres_shift(int b, int l){
