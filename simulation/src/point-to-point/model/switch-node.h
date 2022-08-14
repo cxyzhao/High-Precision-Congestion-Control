@@ -45,6 +45,8 @@ protected:
 	int abc_tokenMinBound = 0; 
 	int abc_markmode = 1;
 
+	double avg_qlen = 0; // Use to calculate ewma of qlen
+
 	uint32_t m_ackHighPrio; // set high priority for ACK/NACK
 
 private:

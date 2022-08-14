@@ -385,6 +385,81 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
+				else if(abc_markmode == 5){ //Vanilla ABC + using Avg QLen
+					//Count current pkt as DqPktSize
+					m_DqPktSize[ifIndex] += p->GetSize();
+
+					double tr_t = 1.0; // target rate
+					double yita = 0.95; //eta
+					double delta = abc_delta; //nanoseconds
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+					
+					double cur_qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+
+					avg_qlen = 0.9 * avg_qlen + cur_qLen * 0.1;
+
+
+					double x_t = avg_qlen / u_t * 1000000000 ; //queuing delay (nanoseconds)
+
+
+					double d_t = abc_dt; // nanoseconds
+					tr_t = abc_eta * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
+
+				
+
+					double cr_t = 1.0; // dequeue rate BytesPerSecond
+					uint64_t t = Simulator::Now().GetTimeStep();
+					double dt = t - m_lastUpdateDqRateTs[ifIndex];
+					double update_interval = abc_dqInterval;
+
+					if (dt > update_interval){ // update dqRate per x ns
+						dqRate[ifIndex][qIndex] = m_DqPktSize[ifIndex] / (dt/1000000000); // Bps
+						m_DqPktSize[ifIndex] = 0;
+						m_lastUpdateDqRateTs[ifIndex] = t;
+					}
+					cr_t  = dqRate[ifIndex][qIndex];
+				
+					double f_t; 
+					if(abc_tokenMinBound)
+						f_t  = std::min(0.5 * tr_t / cr_t, 1.0);
+					else 
+						f_t  = 0.5 * tr_t / cr_t;
+
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					
+					//printf("%ld, %ld, queueing delay %f, %f, %f %f %f %s\n", m_DqPktSize[ifIndex], t, x_t, dt, tr_t, cr_t, f_t, h.EcnTypeToString(h.GetEcn()).c_str());
+					
+					//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
+
+					double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
+					abc_token = std::min(abc_token + f_t, tokenLimit);
+
+					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
+						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
+						//printf("%f \n", abc_token);
+						if (abc_token > 1.0){
+							abc_token -= 1.0;
+							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
+							//Mark Accelerate
+							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+						}
+						else{
+							//Mark brake
+							//printf("Switch to Brake, %f %f %f \n", qLen, abc_token, f_t);
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+					//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
+					//m_DqPktSize[ifIndex] += p->GetSize();
+				}
 			}
 		}
 		else if (m_ecnEnabled){ //Other CC_Mode to process ECN

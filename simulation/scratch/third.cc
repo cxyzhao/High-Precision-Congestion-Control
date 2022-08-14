@@ -307,13 +307,13 @@ void monitor_header(FILE* header_output, NodeContainer *n){
 				Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n->Get(i));
 				for (uint32_t j = 1; j < sw->GetNDevices(); j++){
 					fprintf(header_output, "%u %u", i, j);
-					fprintf(header_output, " %u", sw->m_txBytes_all[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_udp[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_udp_wholeheader[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_udp_intheader[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_ack[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_ack_wholeheader[j]);
-					fprintf(header_output, " %u", sw->m_txBytes_ack_intheader[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_all[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_udp[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_udp_wholeheader[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_udp_intheader[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_ack[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_ack_wholeheader[j]);
+					fprintf(header_output, " %lu", sw->m_txBytes_ack_intheader[j]);
 					fprintf(header_output, "\n");
 				}
 			}	
