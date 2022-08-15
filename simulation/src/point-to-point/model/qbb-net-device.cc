@@ -308,10 +308,15 @@ namespace ns3 {
 				uint32_t qIndex = m_queue->GetLastQueue();
 				if (qIndex == 0){//this is a pause or cnp, send it immediately!
 					m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
-					p->RemovePacketTag(t);
+
+					// DEBUG : p->RemovePacketTag(t) shoude be done in 
+					// SwitchNotifyDequeue. It affects the pkt size.
+					//p->RemovePacketTag(t);
 				}else{
 					m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
-					p->RemovePacketTag(t);
+					// DEBUG : p->RemovePacketTag(t) shoude be done in 
+					// SwitchNotifyDequeue. It affects the pkt size.
+					//p->RemovePacketTag(t);
 				}
 				m_traceDequeue(p, qIndex);
 				TransmitStart(p);
