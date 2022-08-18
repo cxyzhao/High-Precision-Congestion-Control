@@ -66,6 +66,10 @@ RdmaQueuePair::RdmaQueuePair(uint16_t pg, Ipv4Address _sip, Ipv4Address _dip, ui
 
 	hpccPint.m_lastUpdateSeq = 0;
 	hpccPint.m_incStage = 0;
+
+	lastUpdateGoodputTime = Simulator::Now();
+	lastUpdateGoodputUnackSeq = 0;
+	goodput = 0.0;
 }
 
 void RdmaQueuePair::SetSize(uint64_t size){
@@ -110,6 +114,12 @@ uint32_t RdmaQueuePair::GetHash(void){
 void RdmaQueuePair::Acknowledge(uint64_t ack){
 	if (ack > snd_una){
 		snd_una = ack;
+	}
+	Time curT = Simulator::Now();
+	if(curT-lastUpdateGoodputTime > 1000){//Update goodput per 1us
+		goodput = (snd_una - lastUpdateGoodputUnackSeq) / (curT.GetTimeStep()-lastUpdateGoodputTime.GetTimeStep()) * 8;
+		lastUpdateGoodputTime = curT;
+		lastUpdateGoodputUnackSeq = snd_una;
 	}
 }
 

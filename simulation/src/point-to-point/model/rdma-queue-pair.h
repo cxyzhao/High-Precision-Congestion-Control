@@ -81,6 +81,14 @@ public:
 	}hpccPint;
 
 	/***********
+	 * To measure goodput
+	 **********/
+	Time lastUpdateGoodputTime;
+	uint64_t lastUpdateGoodputUnackSeq;
+	uint32_t goodput;
+
+
+	/***********
 	 * methods
 	 **********/
 	static TypeId GetTypeId (void);

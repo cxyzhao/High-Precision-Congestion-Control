@@ -60,7 +60,7 @@ BUFFER_SIZE {buffer_size}
 QLEN_MON_FILE mix/qlen_{topo}_{trace}_ackHigh{ack_prio}_{cc}{failure}.txt
 QLEN_MON_START 2000000000
 QLEN_MON_END 3000000000
-QLEN_DUMP_INTERVAL 1000000
+QLEN_DUMP_INTERVAL 1000
 
 LINK_MON_FILE mix/link_{topo}_{trace}_ackHigh{ack_prio}_{cc}{failure}.txt
 LINK_MON_START 2000000000
@@ -81,6 +81,11 @@ HEADER_MON_FILE mix/header_{topo}_{trace}_ackHigh{ack_prio}_{cc}{failure}.txt
 HEADER_MON_START 2000000000
 HEADER_MON_END 3000000000
 HEADER_DUMP_INTERVAL 100000
+
+FLOWBW_MON_FILE mix/flowbw_{topo}_{trace}_ackHigh{ack_prio}_{cc}{failure}.txt
+FLOWBW_MON_START 2000000000
+FLOWBW_MON_END 3000000000
+FLOWBW_DUMP_INTERVAL 1000
 """
 
 abc_config_template = """

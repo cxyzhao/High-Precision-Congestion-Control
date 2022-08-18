@@ -31,6 +31,11 @@ class SwitchNode : public Node{
 	uint64_t m_lastUpdateDqRateTs[pCnt]; // ns
 	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
 
+	// Record to calculate queue build-up rate
+	uint64_t m_lastUpdateQBuildRateTs[pCnt][qCnt]; // ns
+	uint64_t m_lastQLen[pCnt][qCnt]; // qLen Bytes  of last update
+
+
 
 protected:
 	bool m_ecnEnabled;
@@ -41,6 +46,7 @@ protected:
 	double abc_eta;
 	double abc_tokenLimit;
 	double abc_token = 0;
+	double qBuildUpRate = 0.0;
 	int abc_dqInterval = 0;
 	int abc_tokenMinBound = 0; 
 	int abc_markmode = 1;

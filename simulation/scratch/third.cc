@@ -100,6 +100,10 @@ uint32_t header_dump_interval = 100000000, header_mon_interval = 10000;
 uint64_t header_mon_start = 2000000000, header_mon_end = 2100000000;
 string header_mon_file;
 
+uint32_t flowbw_dump_interval = 100000000; // No monitor interval for flowbw
+uint64_t flowbw_mon_start = 2000000000, flowbw_mon_end = 2100000000;
+string flowbw_mon_file;
+
 unordered_map<uint64_t, uint32_t> rate2kmax, rate2kmin;
 unordered_map<uint64_t, double> rate2pmax;
 
@@ -404,6 +408,28 @@ void monitor_outflow(FILE* outflow_output, NodeContainer *n){
 	}
 	if (Simulator::Now().GetTimeStep() < outflow_mon_end)
 		Simulator::Schedule(NanoSeconds(outflow_dump_interval), &monitor_outflow, outflow_output, n);
+}
+
+void monitor_flowbw(FILE* flowbw_output, NodeContainer *n){	
+	fprintf(flowbw_output, "time: %lu\n", Simulator::Now().GetTimeStep());
+	for (uint32_t i = 0; i < n->GetN(); i++){
+		if (n->Get(i)->GetNodeType() == 0){ // is NIC
+				for (auto &it : n->Get(i)->GetObject<RdmaDriver>()->m_rdma->m_qpMap){
+					Ptr<RdmaQueuePair> q = it.second;
+					uint32_t sid = ip_to_node_id(q->sip), did = ip_to_node_id(q->dip);
+					uint32_t total_bytes = q->m_size + ((q->m_size-1) / packet_payload_size + 1) * (CustomHeader::GetStaticWholeHeaderSize() - IntHeader::GetStaticSize()); // translate to the minimum bytes required (with header but no INT)
+					uint64_t start_ts = q->startTime.GetTimeStep();
+					uint64_t cwnd = q->GetWin(); //bytes
+					uint32_t goodput = q->goodput; // gbps
+					fprintf(flowbw_output, "%u %u %lu %u %lu %lu %u\n", sid, did, start_ts, total_bytes,  Simulator::Now().GetTimeStep(), cwnd, goodput);
+				}
+		}	
+	
+	}
+	fflush(flowbw_output);
+	
+	if (Simulator::Now().GetTimeStep() < flowbw_mon_end)
+		Simulator::Schedule(NanoSeconds(flowbw_dump_interval), &monitor_flowbw, flowbw_output, n);
 }
 
 void CalculateRoute(Ptr<Node> host){
@@ -882,6 +908,18 @@ int main(int argc, char *argv[])
 			}else if (key.compare("HEADER_DUMP_INTERVAL") == 0){
 				conf >> header_dump_interval;
 				std::cout << "HEADER_DUMP_INTERVAL\t\t\t\t" << header_dump_interval << '\n';
+			}else if (key.compare("FLOWBW_MON_FILE") == 0){
+				conf >> flowbw_mon_file;
+				std::cout << "FLOWBW_MON_FILE\t\t\t\t" << flowbw_mon_file << '\n';
+			}else if (key.compare("FLOWBW_MON_START") == 0){
+				conf >> flowbw_mon_start;
+				std::cout << "FLOWBW_MON_START\t\t\t\t" << flowbw_mon_start << '\n';
+			}else if (key.compare("FLOWBW_MON_END") == 0){
+				conf >> flowbw_mon_end;
+				std::cout << "FLOWBW_MON_END\t\t\t\t" << flowbw_mon_end << '\n';
+			}else if (key.compare("FLOWBW_DUMP_INTERVAL") == 0){
+				conf >> flowbw_dump_interval;
+				std::cout << "FLOWBW_DUMP_INTERVAL\t\t\t\t" << flowbw_dump_interval << '\n';
 			}else if (key.compare("MULTI_RATE") == 0){
 				int v;
 				conf >> v;
@@ -1311,7 +1349,11 @@ int main(int argc, char *argv[])
 	FILE* header_output = fopen(header_mon_file.c_str(), "w");
 	Simulator::Schedule(NanoSeconds(header_mon_start), &monitor_header, header_output, &n);
 
-	
+	// schedule flow bandwidth monitor
+	FILE* flowbw_output = fopen(flowbw_mon_file.c_str(), "w");
+	Simulator::Schedule(NanoSeconds(flowbw_mon_start), &monitor_flowbw, flowbw_output, &n);
+
+
 	//
 	// Now, do the actual simulation.
 	//
