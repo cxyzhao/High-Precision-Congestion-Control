@@ -217,26 +217,28 @@ namespace ns3 {
 			qIndex = 0;
 		}
 		else{
-			for (qIndex = 1; qIndex <= qCnt; qIndex++)
-			{
-				if ((qIndex + m_rrlast) % qCnt == 0){
-					cur_round += 1;
-					if(cur_round > weight_max)
-						cur_round = 1;
-				}
-				std::cout << (qIndex + m_rrlast) % qCnt;
-				std::cout << queue_weight[(qIndex + m_rrlast) % qCnt];
-				std::cout <<  weight_max;
-				if (!paused[(qIndex + m_rrlast) % qCnt] && cur_round <= queue_weight[(qIndex + m_rrlast) % qCnt] && m_queues[(qIndex + m_rrlast) % qCnt]->GetNPackets() > 0)  //round robin
+			while(1){
+				for (qIndex = 1; qIndex <= qCnt; qIndex++)
 				{
-					found = true;
-					break;
-					
+					if ( ((qIndex + m_rrlast) % qCnt) == 0){
+						cur_round += 1;
+						if(cur_round > weight_max)
+							cur_round = 1;
+					}
+					if(cur_round <= queue_weight[(qIndex + m_rrlast) % qCnt]){
+						if (!paused[(qIndex + m_rrlast) % qCnt]  && m_queues[(qIndex + m_rrlast) % qCnt]->GetNPackets() > 0)  //round robin
+						{
+							found = true;
+							break;
+							
+						}
+					}
 				}
+				if(found || cur_round == 1)
+					break;
 			}
 			qIndex = (qIndex + m_rrlast) % qCnt;
 		}
-
 		if (found)
 		{
 			Ptr<Packet> p = m_queues[qIndex]->Dequeue();

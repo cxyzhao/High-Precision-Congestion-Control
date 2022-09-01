@@ -60,7 +60,7 @@ BUFFER_SIZE {buffer_size}
 QLEN_MON_FILE mix/qlen_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 QLEN_MON_START 2000000000
 QLEN_MON_END 3000000000
-QLEN_DUMP_INTERVAL 1000
+QLEN_DUMP_INTERVAL 1000000
 
 LINK_MON_FILE mix/link_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 LINK_MON_START 2000000000
@@ -85,11 +85,11 @@ HEADER_DUMP_INTERVAL 100000
 FLOWBW_MON_FILE mix/flowbw_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 FLOWBW_MON_START 2000000000
 FLOWBW_MON_END 3000000000
-FLOWBW_DUMP_INTERVAL 1000
+FLOWBW_DUMP_INTERVAL 1000000
 
 SWITCH_SCHEDULING_MODE {schedule}
 
-QUEUE_WEIGHT 2 1 1 3 1
+QUEUE_WEIGHT 2 1 10 3 5
 """
 
 abc_config_template = """
