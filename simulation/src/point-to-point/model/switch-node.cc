@@ -105,6 +105,8 @@ SwitchNode::SwitchNode(){
 		m_u[i] = 0;
 	for (uint32_t i = 0; i < pCnt; i++)
 		m_lastUpdateDqRateTs[i] = m_DqPktSize[i]  =0;
+	for (uint32_t i = 0; i < pCnt; i++)
+		abc_token[i] = 0.0;
 	for (uint32_t i = 0; i < pCnt; i++){
 		for (uint32_t j = 0; j < qCnt; j++){
 			dqRate[i][j] = m_lastQLen[i][j] = 0.0;
@@ -301,7 +303,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					double tokenLimit = abc_tokenLimit * 1000; 
 					//token limit  maxBdp=104000 Bytes
 					//Here, 1000 is an approximated estimation of payload size
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					abc_token[ifIndex] = std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 
 					m_DqPktSize[ifIndex] += pkt_size;
@@ -360,7 +362,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					double tokenLimit = abc_tokenLimit * 1000; 
 					//token limit  maxBdp=104000 Bytes
 					//Here, 1000 is an approximated estimation of payload size
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 
 					m_DqPktSize[ifIndex] += pkt_size;
@@ -427,15 +429,15 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
 					double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					}
 					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
 						//printf("%f \n", abc_token);
-						if (abc_token > 1.0){
-							abc_token -= 1.0;
+						if (abc_token[ifIndex]> 1.0){
+							abc_token[ifIndex]-= 1.0;
 							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
 							//Mark Accelerate
 							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
@@ -455,6 +457,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 					double delta = abc_delta; //nanoseconds
 					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					//double qLen = dev->GetQueue()->GetPhantomNBytes(qIndex); // Get Queue Len
 					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
 
 					double kmax = (delta / 1000000000) * u_t;
@@ -570,15 +573,15 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					//token limit  maxBdp=104000 Bytes
 					//Here, 1000 is an approximated estimation of payload size
 
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					}
 					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
 						//printf("%f \n", abc_token);
-						if (abc_token > 1.0){
-							abc_token -= 1.0;
+						if (abc_token[ifIndex]> 1.0){
+							abc_token[ifIndex]-= 1.0;
 							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
 							//Mark Accelerate
 							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
@@ -650,15 +653,15 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					//token limit  maxBdp=104000 Bytes
 					//Here, 1000 is an approximated estimation of payload size
 
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					}
 					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
 						//printf("%f \n", abc_token);
-						if (abc_token > pkt_size){
-							abc_token -= pkt_size;
+						if (abc_token[ifIndex]> pkt_size){
+							abc_token[ifIndex]-= pkt_size;
 							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
 							//Mark Accelerate
 							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
@@ -674,7 +677,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
 					m_DqPktSize[ifIndex] += p->GetSize();
 				}else if(abc_markmode == 8 || abc_markmode == 9){ // ABC + Queue Build up rate
-					//Count current pkt as DqPktSize
+					uint32_t pkt_size = p->GetSize();
 					double t = Simulator::Now().GetTimeStep();
 					double tr_t = 1.0; // target rate
 					double yita = 0.95; //eta
@@ -717,6 +720,8 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 						f_t  = std::min(0.5 * tr_t / cr_t, 1.0);
 					else 
 						f_t  = 0.5 * tr_t / cr_t;
+
+					f_t  = f_t * pkt_size;
 				
 					PppHeader ppp;
 					Ipv4Header h;
@@ -727,16 +732,16 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					
 					//printf("before %s \n ", h.EcnTypeToString(h.GetEcn()).c_str());
 
-					double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
-					abc_token = std::min(abc_token + f_t, tokenLimit);
+					double tokenLimit = abc_tokenLimit * 1000; //token limit  maxBdp=104000 Bytes
+					abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
 
 					if (h.GetEcn() == (Ipv4Header::EcnType)0x02){ // Brake
 						h.SetEcn((Ipv4Header::EcnType)0x02); //brake
 					}
 					else if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
 						//printf("%f \n", abc_token);
-						if (abc_token > 1.0){
-							abc_token -= 1.0;
+						if (abc_token[ifIndex]>  pkt_size){
+							abc_token[ifIndex]-=  pkt_size;
 							//printf("Mark Accel,  %f %f %f \n", qLen, abc_token, f_t);
 							//Mark Accelerate
 							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
@@ -751,6 +756,34 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(ppp);
 					//printf("%ld,%f,%f,%f\n",   Simulator::Now().GetTimeStep(), qLen, cr_t, abc_token);
 					m_DqPktSize[ifIndex] += p->GetSize();
+				}
+				else if(abc_markmode == 10){//Piecewise function to mark + using Phantom Queue
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double delta = abc_delta; //nanoseconds
+					//double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					double qLen = dev->GetQueue()->GetPhantomNBytes(qIndex); // Get Queue Len
+					double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+					double kmax = (delta / 1000000000) * u_t;
+					double kmin = 2100; //2pkt size
+					double p_min = 0.5;
+
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					if (qLen > kmax) { // Mark Brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+					}
+					else if (qLen > kmin){
+						double p = (1 - p_min) * double(qLen - kmin) / (kmax - kmin) + p_min;
+						if (UniformVariable(0, 1).GetValue() < p){ // Mark brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+				
 				}
 			}
 		}
@@ -776,7 +809,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 			IntHeader *ih = (IntHeader*)&buf[PppHeader::GetStaticSize() + 20 + 8 + 6]; // ppp, ip, udp, SeqTs, INT
 			Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 			if (m_ccMode == 3){ // HPCC
-				ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex], dev->GetQueue()->GetNBytesTotal(), dev->GetDataRate().GetBitRate());
+				ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex], dev->GetQueue()->GetNBytes(qIndex), dev->GetDataRate().GetBitRate());
 			}else if (m_ccMode == 10){ // HPCC-PINT
 				uint64_t t = Simulator::Now().GetTimeStep();
 				uint64_t dt = t - m_lastPktTs[ifIndex];

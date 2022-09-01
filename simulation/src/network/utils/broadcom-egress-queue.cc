@@ -55,11 +55,17 @@ namespace ns3 {
 	{
 		NS_LOG_FUNCTION_NOARGS();
 		m_bytesInQueueTotal = 0;
+		m_bytesInPhantomQueueTotal = 0;
 		m_rrlast = 0;
+		cur_round = 1;
+		weight_max = 0;
 		for (uint32_t i = 0; i < fCnt; i++)
 		{
 			m_bytesInQueue[i] = 0;
+			m_bytesInPhantomQueue[i] = 0;
 			m_queues.push_back(CreateObject<DropTailQueue>());
+			//Default is round robin
+			queue_weight[i] = 0;
 		}
 	}
 
@@ -124,7 +130,121 @@ namespace ns3 {
 			Ptr<Packet> p = m_queues[qIndex]->Dequeue();
 			m_traceBeqDequeue(p, qIndex);
 			m_bytesInQueueTotal -= p->GetSize();
+			m_bytesInPhantomQueueTotal = m_bytesInQueueTotal / phantomQueue_yita;
 			m_bytesInQueue[qIndex] -= p->GetSize();
+			m_bytesInPhantomQueue[qIndex] = m_bytesInQueue[qIndex] / phantomQueue_yita;
+			if (qIndex != 0)
+			{
+				m_rrlast = qIndex;
+			}
+			m_qlast = qIndex;
+			NS_LOG_LOGIC("Popped " << p);
+			NS_LOG_LOGIC("Number bytes " << m_bytesInQueueTotal);
+			return p;
+		}
+		NS_LOG_LOGIC("Nothing can be sent");
+		return 0;
+	}
+
+	Ptr<Packet>
+		BEgressQueue::DoDequeueSP(bool paused[]) //this is for switch only, Dequeue with strict priority
+	{
+		NS_LOG_FUNCTION(this);
+
+		if (m_bytesInQueueTotal == 0)
+		{
+			NS_LOG_LOGIC("Queue empty");
+			return 0;
+		}
+		bool found = false;
+		uint32_t qIndex;
+
+		for (qIndex = 0; qIndex < qCnt; qIndex++)
+		{
+			if (!paused[qIndex] && m_queues[qIndex]->GetNPackets() > 0)  // strict priority, smaller number means higeer priority
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if (found)
+		{
+			Ptr<Packet> p = m_queues[qIndex]->Dequeue();
+			m_traceBeqDequeue(p, qIndex);
+			m_bytesInQueueTotal -= p->GetSize();
+			m_bytesInPhantomQueueTotal = m_bytesInQueueTotal / phantomQueue_yita;
+			m_bytesInQueue[qIndex] -= p->GetSize();
+			m_bytesInPhantomQueue[qIndex] = m_bytesInQueue[qIndex] / phantomQueue_yita;
+			if (qIndex != 0)
+			{
+				m_rrlast = qIndex;
+			}
+			m_qlast = qIndex;
+			NS_LOG_LOGIC("Popped " << p);
+			NS_LOG_LOGIC("Number bytes " << m_bytesInQueueTotal);
+			return p;
+		}
+		NS_LOG_LOGIC("Nothing can be sent");
+		return 0;
+	}
+
+	void 
+		BEgressQueue::SetQueueWeight(uint32_t qIndex, uint32_t weight)
+	{
+		queue_weight[qIndex] = weight;
+		if(weight > weight_max)
+			weight_max = weight;
+		return;
+	}
+
+	Ptr<Packet>
+		BEgressQueue::DoDequeueWRR(bool paused[]) //this is for switch only, Dequeue with weighted round robin
+	{
+		NS_LOG_FUNCTION(this);
+
+		if (m_bytesInQueueTotal == 0)
+		{
+			NS_LOG_LOGIC("Queue empty");
+			return 0;
+		}
+		bool found = false;
+		uint32_t qIndex;
+
+		if (m_queues[0]->GetNPackets() > 0) //0 is the highest priority
+		{
+			found = true;
+			qIndex = 0;
+		}
+		else{
+			for (qIndex = 1; qIndex <= qCnt; qIndex++)
+			{
+				if ((qIndex + m_rrlast) % qCnt == 0){
+					cur_round += 1;
+					if(cur_round > weight_max)
+						cur_round = 1;
+				}
+				std::cout << (qIndex + m_rrlast) % qCnt;
+				std::cout << queue_weight[(qIndex + m_rrlast) % qCnt];
+				std::cout <<  weight_max;
+				if (!paused[(qIndex + m_rrlast) % qCnt] && cur_round <= queue_weight[(qIndex + m_rrlast) % qCnt] && m_queues[(qIndex + m_rrlast) % qCnt]->GetNPackets() > 0)  //round robin
+				{
+					found = true;
+					break;
+					
+				}
+			}
+			qIndex = (qIndex + m_rrlast) % qCnt;
+		}
+
+		if (found)
+		{
+			Ptr<Packet> p = m_queues[qIndex]->Dequeue();
+			m_traceBeqDequeue(p, qIndex);
+			m_bytesInQueueTotal -= p->GetSize();
+			m_bytesInPhantomQueueTotal = m_bytesInQueueTotal / phantomQueue_yita;
+			m_bytesInQueue[qIndex] -= p->GetSize();
+			m_bytesInPhantomQueue[qIndex] = m_bytesInQueue[qIndex] / phantomQueue_yita;
 			if (qIndex != 0)
 			{
 				m_rrlast = qIndex;
@@ -178,6 +298,42 @@ namespace ns3 {
 		}
 		return packet;
 	}
+
+	Ptr<Packet>
+		BEgressQueue::DequeueWRR(bool paused[])
+	{
+		NS_LOG_FUNCTION(this);
+		Ptr<Packet> packet = DoDequeueWRR(paused);
+		if (packet != 0)
+		{
+			NS_ASSERT(m_nBytes >= packet->GetSize());
+			NS_ASSERT(m_nPackets > 0);
+			m_nBytes -= packet->GetSize();
+			m_nPackets--;
+			NS_LOG_LOGIC("m_traceDequeue (packet)");
+			m_traceDequeue(packet);
+		}
+		return packet;
+	}
+
+	Ptr<Packet>
+		BEgressQueue::DequeueSP(bool paused[])
+	{
+		NS_LOG_FUNCTION(this);
+		Ptr<Packet> packet = DoDequeueSP(paused);
+		if (packet != 0)
+		{
+			NS_ASSERT(m_nBytes >= packet->GetSize());
+			NS_ASSERT(m_nPackets > 0);
+			m_nBytes -= packet->GetSize();
+			m_nPackets--;
+			NS_LOG_LOGIC("m_traceDequeue (packet)");
+			m_traceDequeue(packet);
+		}
+		return packet;
+	}
+
+	
 
 	bool
 		BEgressQueue::DoEnqueue(Ptr<Packet> p)	//for compatiability
@@ -233,6 +389,19 @@ namespace ns3 {
 		BEgressQueue::GetNBytesTotal() const
 	{
 		return m_bytesInQueueTotal;
+	}
+
+	uint32_t
+		BEgressQueue::GetPhantomNBytes(uint32_t qIndex) const
+	{
+		return m_bytesInPhantomQueue[qIndex];
+	}
+
+
+	uint32_t
+		BEgressQueue::GetPhantomNBytesTotal() const
+	{
+		return m_bytesInPhantomQueueTotal;
 	}
 
 	uint32_t

@@ -43,8 +43,10 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+uint32_t switch_scheduling_mode = 0; // 0 is Round-Robin, 1 is Strict-Priority
 double abc_dt, abc_delta, abc_token, abc_eta;
 int abc_dqinterval, abc_tokenminbound, abc_markmode;
+uint32_t abc_brake_lastrtt = 0;
 bool enable_qcn = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -92,7 +94,7 @@ uint32_t outflow_dump_interval = 100000000;
 uint64_t outflow_mon_start = 2000000000, outflow_mon_end = 2100000000;
 string outflow_mon_file;
 
-uint32_t dqrate_dump_interval = 100000000, dqrate_mon_interval = 10000;
+uint32_t dqrate_dump_interval = 100000000, dqrate_mon_interval = 100;
 uint64_t dqrate_mon_start = 2000000000, dqrate_mon_end = 2100000000;
 string dqrate_mon_file;
 
@@ -103,6 +105,8 @@ string header_mon_file;
 uint32_t flowbw_dump_interval = 100000000; // No monitor interval for flowbw
 uint64_t flowbw_mon_start = 2000000000, flowbw_mon_end = 2100000000;
 string flowbw_mon_file;
+
+uint32_t queue_weight_config[SwitchMmu::qCnt];
 
 unordered_map<uint64_t, uint32_t> rate2kmax, rate2kmin;
 unordered_map<uint64_t, double> rate2pmax;
@@ -420,7 +424,7 @@ void monitor_flowbw(FILE* flowbw_output, NodeContainer *n){
 					uint32_t total_bytes = q->m_size + ((q->m_size-1) / packet_payload_size + 1) * (CustomHeader::GetStaticWholeHeaderSize() - IntHeader::GetStaticSize()); // translate to the minimum bytes required (with header but no INT)
 					uint64_t start_ts = q->startTime.GetTimeStep();
 					uint64_t cwnd = q->GetWin(); //bytes
-					uint32_t goodput = q->goodput; // gbps
+					uint32_t goodput = q->GetGoodput(); // gbps
 					fprintf(flowbw_output, "%u %u %lu %u %lu %lu %u\n", sid, did, start_ts, total_bytes,  Simulator::Now().GetTimeStep(), cwnd, goodput);
 				}
 		}	
@@ -562,6 +566,8 @@ int main(int argc, char *argv[])
 #else
 		conf.open(PATH_TO_PGO_CONFIG);
 #endif
+		for (uint32_t k = 1; k < SwitchMmu::qCnt; k++)
+			queue_weight_config[k] = 0;
 		while (!conf.eof())
 		{
 			std::string key;
@@ -749,7 +755,10 @@ int main(int argc, char *argv[])
 				error_rate_per_link = v;
 				std::cout << "ERROR_RATE_PER_LINK\t\t" << error_rate_per_link << "\n";
 			}
-			else if (key.compare("CC_MODE") == 0){
+			else if (key.compare("SWITCH_SCHEDULING_MODE") == 0){
+				conf >> switch_scheduling_mode;
+				std::cout << "SWITCH_SCHEDULING_MODE\t\t" << switch_scheduling_mode << '\n';
+			}else if (key.compare("CC_MODE") == 0){
 				conf >> cc_mode;
 				std::cout << "CC_MODE\t\t" << cc_mode << '\n';
 			}else if (key.compare("RATE_DECREASE_INTERVAL") == 0){
@@ -818,6 +827,18 @@ int main(int argc, char *argv[])
 					conf >> rate >> k;
 					rate2kmax[rate] = k;
 					std::cout << ' ' << rate << ' ' << k;
+				}
+				std::cout<<'\n';
+			}else if (key.compare("QUEUE_WEIGHT") == 0){
+				int n_k ;
+				conf >> n_k;
+				std::cout << "QUEUE_WEIGHT\t\t\t\t";
+				for (int i = 0; i < n_k; i++){
+					uint32_t qIndex;
+					uint32_t qWeight;
+					conf >> qIndex >> qWeight;
+					queue_weight_config[qIndex] = qWeight;
+					std::cout << ' ' << qIndex << ' ' << qWeight;
 				}
 				std::cout<<'\n';
 			}else if (key.compare("KMIN_MAP") == 0){
@@ -965,6 +986,11 @@ int main(int argc, char *argv[])
 				conf >> abc_markmode;
 				std::cout << "ABC_MARKMODE\t\t\t\t" << abc_markmode << '\n';
 			}
+			else if (key.compare("ABC_BRAKE_LASTRTT") == 0){
+				conf >> abc_brake_lastrtt;
+				std::cout << "ABC_BRAKE_LASTRTT \t\t\t\t" << abc_brake_lastrtt << '\n';
+			}
+
 			fflush(stdout);
 		}
 		conf.close();
@@ -982,6 +1008,8 @@ int main(int argc, char *argv[])
 	Config::SetDefault("ns3::QbbNetDevice::PauseTime", UintegerValue(pause_time));
 	Config::SetDefault("ns3::QbbNetDevice::QcnEnabled", BooleanValue(enable_qcn));
 	Config::SetDefault("ns3::QbbNetDevice::DynamicThreshold", BooleanValue(dynamicth));
+	Config::SetDefault("ns3::QbbNetDevice::SwitchSchedulingMode", UintegerValue(switch_scheduling_mode));
+
 
 	// set int_multi
 	IntHop::multi = int_multi;
@@ -1196,6 +1224,7 @@ int main(int argc, char *argv[])
 			rdmaHw->SetAttribute("RateBound", BooleanValue(rate_bound));
 			rdmaHw->SetAttribute("DctcpRateAI", DataRateValue(DataRate(dctcp_rate_ai)));
 			rdmaHw->SetPintSmplThresh(pint_prob);
+			rdmaHw->SetAttribute("ABCBrakeLastRtt", BooleanValue(abc_brake_lastrtt));
 			// create and install RdmaDriver
 			Ptr<RdmaDriver> rdma = CreateObject<RdmaDriver>();
 			Ptr<Node> node = n.Get(i);
@@ -1352,6 +1381,22 @@ int main(int argc, char *argv[])
 	// schedule flow bandwidth monitor
 	FILE* flowbw_output = fopen(flowbw_mon_file.c_str(), "w");
 	Simulator::Schedule(NanoSeconds(flowbw_mon_start), &monitor_flowbw, flowbw_output, &n);
+
+
+
+	// Set weight for weighted round robin
+	for (uint32_t i = 0; i < n.GetN(); i++){
+		if (n.Get(i)->GetNodeType() == 1){ // is switch
+			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
+			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
+				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(sw->GetDevice(j));
+				Ptr<BEgressQueue> queue = dev->GetQueue();
+				for (uint32_t k = 1; k < SwitchMmu::qCnt; k++){
+					queue->SetQueueWeight(k, queue_weight_config[k]);
+				}
+			}
+		}
+	}
 
 
 	//

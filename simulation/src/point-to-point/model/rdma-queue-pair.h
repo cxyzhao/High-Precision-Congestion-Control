@@ -25,6 +25,7 @@ public:
 	uint64_t m_baseRtt; // base RTT of this qp
 	DataRate m_max_rate; // max rate
 	bool m_var_win; // variable window size
+	bool m_abc_brake_lastrtt;
 	Time m_nextAvail;	//< Soonest time of next send
 	uint32_t wp; // current window of packets
 	uint32_t lastPktSize;
@@ -85,6 +86,7 @@ public:
 	 **********/
 	Time lastUpdateGoodputTime;
 	uint64_t lastUpdateGoodputUnackSeq;
+	uint32_t updateGoodputInterval = 4000;
 	uint32_t goodput;
 
 
@@ -97,6 +99,7 @@ public:
 	void SetWin(uint32_t win);
 	void SetBaseRtt(uint64_t baseRtt);
 	void SetVarWin(bool v);
+	void SetABCBrakeLastRTT(bool v);
 	void SetAppNotifyCallback(Callback<void> notifyAppFinish);
 
 	uint64_t GetBytesLeft();
@@ -105,8 +108,12 @@ public:
 	uint64_t GetOnTheFly();
 	bool IsWinBound();
 	uint64_t GetWin(); // window size calculated from m_rate
+	uint32_t GetGoodput();
 	bool IsFinished();
 	uint64_t HpGetCurWin(); // window size calculated from hp.m_curRate, used by HPCC
+
+	bool IsLastRtt(); // last rtt of packets left, for marking brake of ABC
+
 };
 
 class RdmaRxQueuePair : public Object { // Rx side queue pair

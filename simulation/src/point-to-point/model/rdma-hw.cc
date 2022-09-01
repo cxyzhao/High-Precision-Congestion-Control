@@ -180,6 +180,11 @@ TypeId RdmaHw::GetTypeId (void)
 				UintegerValue(65536),
 				MakeUintegerAccessor(&RdmaHw::pint_smpl_thresh),
 				MakeUintegerChecker<uint32_t>())
+		.AddAttribute("ABCBrakeLastRtt",
+				"Brake packets of last RTT or not",
+				BooleanValue(false),
+				MakeBooleanAccessor(&RdmaHw::m_abc_brake_lastrtt),
+				MakeBooleanChecker())
 		;
 	return tid;
 }
@@ -233,6 +238,7 @@ void RdmaHw::AddQueuePair(uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Addre
 	qp->SetWin(win);
 	qp->SetBaseRtt(baseRtt);
 	qp->SetVarWin(m_var_win);
+	qp->SetABCBrakeLastRTT(m_abc_brake_lastrtt);
 	qp->SetAppNotifyCallback(notifyAppFinish);
 
 	// add qp
@@ -1170,13 +1176,13 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	uint64_t cur_cwnd = qp->GetWin();
 	double new_cwnd;  //cwnd in bytes
 	double alpha;
-
+	
 	if(slow_unit)
 		// alpha = (double)m_mtu / qp->m_win; // m_win is pair_bdp
 		alpha = (double)m_mtu / qp->m_win; // m_win is pair_bdp
 	else
 		alpha = (double)m_mtu / cur_cwnd; // ABC
-
+	
 	if (alpha > 1 ) alpha = 1.0; //Bound alpha less than 1.0
 
 	if (cnp){//brake
@@ -1185,13 +1191,22 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	else{//accel
 		new_cwnd = cur_cwnd * ( 1.0 +  alpha )  + ((double) m_mtu / cur_cwnd * m_mtu); 
 	}
+
+	// if (cnp){//brake
+	// 	new_cwnd = cur_cwnd * ( 1.0 - alpha );
+	// }
+	// else{//accel
+	// 	new_cwnd = cur_cwnd * ( 1.0 +  alpha ); 
+	// }
 	
 	//We donot directly adjust the cwnd
 	//cwnd is derived by m_rate when VAR_WIN is enabled
 	// so we just need to adjust the m_rate
 	// while setting flags VAR_WIN and HAS_WIN as true for ABC 
 	new_rate = new_cwnd / qp->m_win * qp->m_max_rate; 
+	//upper bounded by BDP, lower bounded by m_minRate
 	qp->m_rate = std::max(m_minRate, new_rate);
+	qp->m_rate = std::min(qp->m_max_rate, qp->m_rate);
 	
 	//To DEBUG
 	int accel = 1;

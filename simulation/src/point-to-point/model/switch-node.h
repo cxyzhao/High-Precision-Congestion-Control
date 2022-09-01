@@ -45,11 +45,12 @@ protected:
 	double abc_delta;
 	double abc_eta;
 	double abc_tokenLimit;
-	double abc_token = 0;
 	double qBuildUpRate = 0.0;
 	int abc_dqInterval = 0;
 	int abc_tokenMinBound = 0; 
 	int abc_markmode = 1;
+
+	double abc_token[pCnt];
 
 	double avg_qlen = 0; // Use to calculate ewma of qlen
 

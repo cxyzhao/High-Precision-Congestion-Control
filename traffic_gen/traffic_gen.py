@@ -40,6 +40,7 @@ if __name__ == "__main__":
 	parser.add_option("-p", "--pattern", dest = "pattern", help = "traffic pattern, 0(normal), 1(only_cross_pod), 2(only_inner_pod)", default = "0")
 	parser.add_option("-j", "--inject", dest = "inject", help = "inject long flow and 1pkt flow", default = "0")
 	parser.add_option("-r", "--repeat", dest = "repeat", help = "Number of repeat genereatin non-incast flows", default="1")
+	parser.add_option("-y", "--priority", dest = "priority", help = "If 1, prioritize short flows (less than 10KB) with priority_group 1", default = "0")
 	options,args = parser.parse_args()
 
 	base_t = 2000000000
@@ -54,6 +55,9 @@ if __name__ == "__main__":
 	load = float(options.load)
 	bandwidth = translate_bandwidth(options.bandwidth)
 	time = float(options.time)*1e9 # translates to ns
+	priority = int(options.priority)
+	low_prio = 3
+	high_prio = 1
 	
 	
 
@@ -85,7 +89,7 @@ if __name__ == "__main__":
 	# Store results to outputlater
 	output_flow_lst = []
 	if (inject):
-		output_flow_lst.append((base_t * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 125000000, base_t * 1e-9)))
+		output_flow_lst.append((base_t * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, low_prio, 125000000, base_t * 1e-9)))
 	
 	# generate non-incast flows
 	avg = customRand.getAvg()
@@ -128,10 +132,16 @@ if __name__ == "__main__":
 
 				# Inject 1pkt flow to detect qDelay
 				if (inject and n_flow > 100 and n_flow % 1000 == 0):
-					output_flow_lst.append(( (t-1) * 1e-9,"%d %d 3 100 %d %.9f\n"%(0, 1, 100, (t-1) * 1e-9)))
+					if(priority):
+						output_flow_lst.append(( (t-1) * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, high_prio, 100, (t-1) * 1e-9)))
+					else:
+						output_flow_lst.append(( (t-1) * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, low_prio, 100, (t-1) * 1e-9)))
 		
 				#Append flow_tuple (start_time, flow_info)
-				output_flow_lst.append((t * 1e-9,"%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+				if(priority and size < 10000):
+					output_flow_lst.append((t * 1e-9,"%d %d %d 100 %d %.9f\n"%(src, dst, high_prio, size, t * 1e-9)))
+				else:
+					output_flow_lst.append((t * 1e-9,"%d %d %d 100 %d %.9f\n"%(src, dst, low_prio, size, t * 1e-9)))
 				#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
 				heapq.heapreplace(host_list, (t + inter_t, src))
 
@@ -168,7 +178,10 @@ if __name__ == "__main__":
 			for src in src_set:
 				n_flow += 1
 				#Append flow_tuple (start_time, flow_info)
-				output_flow_lst.append((t * 1e-9,"%d %d 3 200 %d %.9f\n"%(src, dst, size, t * 1e-9)))
+				if(priority and size < 10000):
+					output_flow_lst.append((t * 1e-9,"%d %d %d 200 %d %.9f\n"%(src, dst, high_prio, size, t * 1e-9)))
+				else:
+					output_flow_lst.append((t * 1e-9,"%d %d %d 200 %d %.9f\n"%(src, dst, low_prio, size, t * 1e-9)))
 				#ofile.write("%d %d 3 100 %d %.9f\n"%(src, dst, size, t * 1e-9))
 
 			t += avg_inter_arrival

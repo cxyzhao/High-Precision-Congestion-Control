@@ -39,16 +39,29 @@ namespace ns3 {
 		virtual ~BEgressQueue();
 		bool Enqueue(Ptr<Packet> p, uint32_t qIndex);
 		Ptr<Packet> DequeueRR(bool paused[]);
+		Ptr<Packet> DequeueWRR(bool paused[]);
+		Ptr<Packet> DequeueSP(bool paused[]);
 		uint32_t GetNBytes(uint32_t qIndex) const;
 		uint32_t GetNBytesTotal() const;
+		uint32_t GetPhantomNBytes(uint32_t qIndex) const;
+		uint32_t GetPhantomNBytesTotal() const;
 		uint32_t GetLastQueue();
 
 		TracedCallback<Ptr<const Packet>, uint32_t> m_traceBeqEnqueue;
 		TracedCallback<Ptr<const Packet>, uint32_t> m_traceBeqDequeue;
 
+		double phantomQueue_yita = 0.95;
+		//Used for Interleaved WRR 
+		uint32_t cur_round = 1;
+		uint32_t weight_max = 1;
+		uint32_t queue_weight[fCnt];
+		void SetQueueWeight(uint32_t qIndex, uint32_t weight);
+
 	private:
 		bool DoEnqueue(Ptr<Packet> p, uint32_t qIndex);
 		Ptr<Packet> DoDequeueRR(bool paused[]);
+		Ptr<Packet> DoDequeueSP(bool paused[]);
+		Ptr<Packet> DoDequeueWRR(bool paused[]);
 		//for compatibility
 		virtual bool DoEnqueue(Ptr<Packet> p);
 		virtual Ptr<Packet> DoDequeue(void);
@@ -56,6 +69,8 @@ namespace ns3 {
 		double m_maxBytes; //total bytes limit
 		uint32_t m_bytesInQueue[fCnt];
 		uint32_t m_bytesInQueueTotal;
+		uint32_t m_bytesInPhantomQueue[fCnt];
+		uint32_t m_bytesInPhantomQueueTotal;
 		uint32_t m_rrlast;
 		uint32_t m_qlast;
 		std::vector<Ptr<Queue> > m_queues; // uc queues

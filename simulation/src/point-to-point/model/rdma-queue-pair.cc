@@ -88,6 +88,10 @@ void RdmaQueuePair::SetVarWin(bool v){
 	m_var_win = v;
 }
 
+void RdmaQueuePair::SetABCBrakeLastRTT(bool abc_brake_lastrtt){
+	m_abc_brake_lastrtt = abc_brake_lastrtt;
+}
+
 void RdmaQueuePair::SetAppNotifyCallback(Callback<void> notifyAppFinish){
 	m_notifyAppFinish = notifyAppFinish;
 }
@@ -115,12 +119,6 @@ void RdmaQueuePair::Acknowledge(uint64_t ack){
 	if (ack > snd_una){
 		snd_una = ack;
 	}
-	Time curT = Simulator::Now();
-	if(curT-lastUpdateGoodputTime > 1000){//Update goodput per 1us
-		goodput = (snd_una - lastUpdateGoodputUnackSeq) / (curT.GetTimeStep()-lastUpdateGoodputTime.GetTimeStep()) * 8;
-		lastUpdateGoodputTime = curT;
-		lastUpdateGoodputUnackSeq = snd_una;
-	}
 }
 
 uint64_t RdmaQueuePair::GetOnTheFly(){
@@ -130,6 +128,20 @@ uint64_t RdmaQueuePair::GetOnTheFly(){
 bool RdmaQueuePair::IsWinBound(){
 	uint64_t w = GetWin();
 	return w != 0 && GetOnTheFly() >= w;
+}
+
+bool RdmaQueuePair::IsLastRtt(){
+	return GetBytesLeft() < GetWin();
+}
+
+uint32_t RdmaQueuePair::GetGoodput(){
+	Time curT = Simulator::Now();
+	if(curT-lastUpdateGoodputTime > updateGoodputInterval){//Update goodput per 1us
+		goodput = (snd_una - lastUpdateGoodputUnackSeq) / (curT.GetTimeStep()-lastUpdateGoodputTime.GetTimeStep()) * 8;
+		lastUpdateGoodputTime = curT;
+		lastUpdateGoodputUnackSeq = snd_una;
+	}
+	return goodput;
 }
 
 uint64_t RdmaQueuePair::GetWin(){

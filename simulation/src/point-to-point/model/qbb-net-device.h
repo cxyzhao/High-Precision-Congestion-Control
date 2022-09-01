@@ -164,6 +164,9 @@ protected:
   uint32_t m_pausetime;	//< Time for each Pause
   bool m_paused[qCnt];	//< Whether a queue paused
 
+  //Switch Queue Scheduling Mode
+  uint32_t m_switchSchedulingMode; //0 is RR, 1 is SP
+
   //qcn
 
   /* RP parameters */

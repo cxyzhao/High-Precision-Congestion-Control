@@ -83,6 +83,20 @@ namespace ns3 {
 		}
 		if (qIndex >= 0){ // qp
 			Ptr<Packet> p = m_rdmaGetNxtPkt(m_qpGrp->Get(qIndex));
+			
+			if(m_qpGrp->Get(qIndex)->m_abc_brake_lastrtt){
+				//ABC last RTT
+				//To avoid the waste of tokens
+				PppHeader ppp;
+				Ipv4Header h;
+				p->RemoveHeader(ppp);
+				p->RemoveHeader(h);
+				if(m_qpGrp->Get(qIndex)->IsLastRtt())
+					h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+				p->AddHeader(h);
+				p->AddHeader(ppp);
+			}
+
 			m_rrlast = qIndex;
 			m_qlast = qIndex;
 			m_traceRdmaDequeue(p, m_qpGrp->Get(qIndex)->m_pg);
@@ -213,6 +227,11 @@ namespace ns3 {
 					MakeTraceSourceAccessor (&QbbNetDevice::m_traceQpDequeue))
 			.AddTraceSource ("QbbPfc", "get a PFC packet. 0: resume, 1: pause",
 					MakeTraceSourceAccessor (&QbbNetDevice::m_tracePfc))
+			.AddAttribute("SwitchSchedulingMode",
+				"Queue scheudling algorithms",
+				UintegerValue(0),
+				MakeUintegerAccessor(&QbbNetDevice::m_switchSchedulingMode),
+				MakeUintegerChecker<uint32_t>())
 			;
 
 		return tid;
@@ -295,7 +314,12 @@ namespace ns3 {
 			}
 			return;
 		}else{   //switch, doesn't care about qcn, just send
-			p = m_queue->DequeueRR(m_paused);		//this is round-robin
+			if (m_switchSchedulingMode == 0)
+				p = m_queue->DequeueRR(m_paused);		//this is round-robin
+			else if (m_switchSchedulingMode == 1)
+				p = m_queue->DequeueSP(m_paused);		//this is strict-priority
+			else if (m_switchSchedulingMode == 2)
+				p = m_queue->DequeueWRR(m_paused);       //this is wighted round robin
 			if (p != 0){
 				m_snifferTrace(p);
 				m_promiscSnifferTrace(p);
