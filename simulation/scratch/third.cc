@@ -86,7 +86,7 @@ uint32_t qlen_dump_interval = 100000000, qlen_mon_interval = 100;
 uint64_t qlen_mon_start = 2000000000, qlen_mon_end = 2100000000;
 string qlen_mon_file;
 
-uint32_t link_dump_interval = 100000000, link_mon_interval = 10000;
+uint32_t link_dump_interval = 100000000, link_mon_interval = 100;
 uint64_t link_mon_start = 2000000000, link_mon_end = 2100000000;
 string link_mon_file;
 
@@ -222,7 +222,7 @@ struct QlenDistribution{
 		cnt[kb]++;
 	}
 };
-map<uint32_t, map<uint32_t, QlenDistribution> > queue_result;
+map<uint32_t, map<uint32_t,  map<uint32_t, QlenDistribution> > > queue_result;
 void monitor_buffer(FILE* qlen_output, NodeContainer *n){
 	for (uint32_t i = 0; i < n->GetN(); i++){
 		if (n->Get(i)->GetNodeType() == 1){ // is switch
@@ -230,10 +230,10 @@ void monitor_buffer(FILE* qlen_output, NodeContainer *n){
 			if (queue_result.find(i) == queue_result.end())
 				queue_result[i];
 			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
-				uint32_t size = 0;
+				// uint32_t size = 0;
 				for (uint32_t k = 0; k < SwitchMmu::qCnt; k++)
-					size += sw->m_mmu->egress_bytes[j][k];
-				queue_result[i][j].add(size);
+					// size += sw->m_mmu->egress_bytes[j][k];
+					queue_result[i][j][k].add(sw->m_mmu->egress_bytes[j][k]);
 			}
 		}
 	}
@@ -241,11 +241,13 @@ void monitor_buffer(FILE* qlen_output, NodeContainer *n){
 		fprintf(qlen_output, "time: %lu\n", Simulator::Now().GetTimeStep());
 		for (auto &it0 : queue_result)
 			for (auto &it1 : it0.second){
-				fprintf(qlen_output, "%u %u", it0.first, it1.first);
-				auto &dist = it1.second.cnt;
-				for (uint32_t i = 0; i < dist.size(); i++)
-					fprintf(qlen_output, " %u", dist[i]);
-				fprintf(qlen_output, "\n");
+				for (auto &it2 : it1.second){
+					fprintf(qlen_output, "%u %u %u", it0.first, it1.first, it2.first);
+					auto &dist = it2.second.cnt;
+					for (uint32_t i = 0; i < dist.size(); i++)
+						fprintf(qlen_output, " %u", dist[i]);
+					fprintf(qlen_output, "\n");
+				}
 			}
 		fflush(qlen_output);
 	}

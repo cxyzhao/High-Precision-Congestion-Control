@@ -1191,14 +1191,9 @@ void RdmaHw::HandleAckAbc(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 	else{//accel
 		new_cwnd = cur_cwnd * ( 1.0 +  alpha )  + ((double) m_mtu / cur_cwnd * m_mtu); 
 	}
-
-	// if (cnp){//brake
-	// 	new_cwnd = cur_cwnd * ( 1.0 - alpha );
-	// }
-	// else{//accel
-	// 	new_cwnd = cur_cwnd * ( 1.0 +  alpha ); 
-	// }
 	
+
+
 	//We donot directly adjust the cwnd
 	//cwnd is derived by m_rate when VAR_WIN is enabled
 	// so we just need to adjust the m_rate
