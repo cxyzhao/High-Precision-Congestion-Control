@@ -88,14 +88,15 @@ if __name__ == "__main__":
 
 	# Store results to outputlater
 	output_flow_lst = []
+	n_flow = 0
 	if (inject):
-		output_flow_lst.append((base_t * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, low_prio, 125000000, base_t * 1e-9)))
+		n_flow += 1
+		output_flow_lst.append((base_t * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, low_prio, 10000000, base_t * 1e-9)))
 	
 	# generate non-incast flows
 	avg = customRand.getAvg()
 	avg_inter_arrival = 1/(bandwidth*load/8./avg)*1000000000
 	n_flow_estimate = int(time / avg_inter_arrival * nhost) * repeat
-	n_flow = 0
 	ofile.write("%d \n" % n_flow_estimate)
 
 	for round in range(repeat):
@@ -112,7 +113,7 @@ if __name__ == "__main__":
 			new_tuple = (src, t + inter_t)
 			dst = random.randint(0, nhost-1)
 			if (pattern == 0):
-				while (dst == src ):
+				while (dst == src):
 					dst = random.randint(0, nhost-1)
 			elif (pattern == 1):
 				#only cross pod
@@ -128,15 +129,17 @@ if __name__ == "__main__":
 				size = int(customRand.rand())
 				if size <= 0:
 					size = 1
-				n_flow += 1
+				
 
 				# Inject 1pkt flow to detect qDelay
 				if (inject and n_flow > 100 and n_flow % 1000 == 0):
+					n_flow += 1
 					if(priority):
 						output_flow_lst.append(( (t-1) * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, high_prio, 100, (t-1) * 1e-9)))
 					else:
 						output_flow_lst.append(( (t-1) * 1e-9,"%d %d %d 100 %d %.9f\n"%(0, 1, low_prio, 100, (t-1) * 1e-9)))
-		
+
+				n_flow += 1
 				#Append flow_tuple (start_time, flow_info)
 				if(priority and size < 10000):
 					output_flow_lst.append((t * 1e-9,"%d %d %d 100 %d %.9f\n"%(src, dst, high_prio, size, t * 1e-9)))

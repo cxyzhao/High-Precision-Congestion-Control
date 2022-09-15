@@ -50,7 +50,7 @@ namespace ns3 {
 		TracedCallback<Ptr<const Packet>, uint32_t> m_traceBeqEnqueue;
 		TracedCallback<Ptr<const Packet>, uint32_t> m_traceBeqDequeue;
 
-		double phantomQueue_yita = 0.95;
+		double phantomQueue_yita = 0.85;
 		//Used for Interleaved WRR 
 		uint32_t cur_round = 1;
 		uint32_t weight_max = 1;
