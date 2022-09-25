@@ -43,6 +43,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+uint32_t hpcc_mode = 0;
 uint32_t switch_scheduling_mode = 0; // 0 is Round-Robin, 1 is Strict-Priority
 double abc_dt, abc_delta, abc_token, abc_eta;
 int abc_dqinterval, abc_tokenminbound, abc_markmode;
@@ -763,6 +764,9 @@ int main(int argc, char *argv[])
 			}else if (key.compare("CC_MODE") == 0){
 				conf >> cc_mode;
 				std::cout << "CC_MODE\t\t" << cc_mode << '\n';
+			}else if (key.compare("HPCC_MODE") == 0){
+				conf >> hpcc_mode;
+				std::cout << "HPCC_MODE\t\t" << hpcc_mode << '\n';
 			}else if (key.compare("RATE_DECREASE_INTERVAL") == 0){
 				double v;
 				conf >> v;
@@ -1292,6 +1296,7 @@ int main(int argc, char *argv[])
 			sw->SetAttribute("AbcDqInterval", IntegerValue(abc_dqinterval));
 			sw->SetAttribute("AbcTokenMinBound", IntegerValue(abc_tokenminbound));
 			sw->SetAttribute("AbcMarkMode", IntegerValue(abc_markmode));
+			sw->SetAttribute("HPCCMODE", IntegerValue(hpcc_mode));
 		}
 	}
 

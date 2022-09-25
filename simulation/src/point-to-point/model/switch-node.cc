@@ -76,6 +76,11 @@ TypeId SwitchNode::GetTypeId (void)
 			IntegerValue(1),
 			MakeIntegerAccessor(&SwitchNode::abc_markmode),
 			MakeIntegerChecker<int>())
+	.AddAttribute("HPCCMODE",
+			"HPCC maintains per-queue/per-port INT",
+			IntegerValue(0),
+			MakeIntegerAccessor(&SwitchNode::m_hpccMode),
+			MakeIntegerChecker<int>())
 	
   ;
   return tid;
@@ -110,6 +115,8 @@ SwitchNode::SwitchNode(){
 	for (uint32_t i = 0; i < pCnt; i++){
 		for (uint32_t j = 0; j < qCnt; j++){
 			dqRate[i][j] = m_lastQLen[i][j] = 0.0;
+			abc_token_perqueue[i][j] = 0.0;
+			m_DqPktSizePerQueue[i][j] = 0.0;
 		}
 	}
  }
@@ -781,7 +788,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(ppp);
 				
 				}
-				else if(abc_markmode == 11){//Piecewise function to mark + Token
+				else if(abc_markmode == 11){//Piecewise function to mark + Per Port Token
 					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 					double delta = abc_delta; //nanoseconds
 					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
@@ -825,6 +832,118 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					p->AddHeader(h);
 					p->AddHeader(ppp);
 				}
+				else if(abc_markmode == 12){//Piecewise function to mark + Per Queue Token
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double delta = abc_delta; //nanoseconds
+					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					// double qLen = dev->GetQueue()->GetPhantomNBytes(qIndex); // Get Queue Len
+					
+					double u_t = dev->GetDataRate().GetBitRate() / 8 * dev->GetQueue()->GetLinkRatio(qIndex); //Link capacity Bps
+					//double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+
+					double kmax = (delta / 1000000000) * u_t;
+					double kmin = 2100; //2pkt size
+					double p_min = 0.5;
+
+					double tokenLimit = abc_tokenLimit; 
+					//token limit  maxBdp=104000 Bytes
+					//Here, 1000 is an approximated estimation of payload size
+
+					double pr_brake; 
+					if (qLen > kmax) 
+						pr_brake  = 1.0;
+					else if (qLen > kmin)
+						pr_brake = (1 - p_min) * double(qLen - kmin) / (kmax - kmin) + p_min;
+					
+					double f_t = 1 - pr_brake;
+					abc_token_perqueue[ifIndex][qIndex] = std::min(abc_token_perqueue[ifIndex][qIndex] + f_t, tokenLimit);
+					// abc_token[ifIndex]= std::min(abc_token[ifIndex]+ f_t, tokenLimit);
+					
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+
+					if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
+						if (abc_token_perqueue[ifIndex][qIndex] > 1.0){
+							abc_token_perqueue[ifIndex][qIndex] -= 1.0;
+							//Mark Accelerate
+							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+						}
+						else{
+							//Mark brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+				}
+				else if(abc_markmode == 13){ //Vanilla ABC + Per Queue Token
+					//Count current pkt as DqPktSize
+
+					double tr_t = 1.0; // target rate
+					double yita = 0.95; //eta
+					double delta = abc_delta; //nanoseconds
+					Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
+					double u_t = dev->GetDataRate().GetBitRate() / 8 * dev->GetQueue()->GetLinkRatio(qIndex); //Link capacity Bps
+					//double u_t = dev->GetDataRate().GetBitRate() / 8; //Link capacity Bps
+
+					double qLen = dev->GetQueue()->GetNBytes(qIndex); // Get Queue Len
+					double x_t = qLen / u_t * 1000000000 ; //queuing delay (nanoseconds)
+
+
+					double d_t = abc_dt; // nanoseconds
+					tr_t = abc_eta * u_t - u_t / delta * std::max(x_t - d_t, 0.0);
+
+					double cr_t = 1.0; // dequeue rate BytesPerSecond
+					double t = Simulator::Now().GetTimeStep();
+					double update_interval = abc_dqInterval;
+					double dt = t - m_lastUpdateDqRateTs[ifIndex];
+					//Due to time resolution of ns, PicoSeconds are lost.
+					if(update_interval < 10)
+						dt += 1;
+
+					if (dt > update_interval){ // update dqRate per x ns
+						dqRate[ifIndex][qIndex] = m_DqPktSizePerQueue[ifIndex][qIndex] / (dt/1000000000); // Bps
+						m_DqPktSizePerQueue[ifIndex][qIndex] = 0;
+						m_lastUpdateDqRateTs[ifIndex] = t;
+					}
+					cr_t  = dqRate[ifIndex][qIndex];
+				
+					double f_t; 
+					if(abc_tokenMinBound)
+						f_t  = std::min(0.5 * tr_t / cr_t, 1.0);
+					else 
+						f_t  = 0.5 * tr_t / cr_t;
+
+					f_t = std::max(0.0, f_t);
+
+					PppHeader ppp;
+					Ipv4Header h;
+					p->RemoveHeader(ppp);
+					p->RemoveHeader(h);
+					
+					double tokenLimit = abc_tokenLimit; //token limit  maxBdp=104000 Bytes
+
+					abc_token_perqueue[ifIndex][qIndex] = std::min(abc_token_perqueue[ifIndex][qIndex] + f_t, tokenLimit);
+
+					if (h.GetEcn() == (Ipv4Header::EcnType)0x01){ // Accel
+						if (abc_token_perqueue[ifIndex][qIndex] > 1.0){
+							abc_token_perqueue[ifIndex][qIndex] -= 1.0;
+							//Mark Accelerate
+							h.SetEcn((Ipv4Header::EcnType)0x01);  //Accelerate
+						}
+						else{
+							//Mark brake
+							h.SetEcn((Ipv4Header::EcnType)0x02); //brake
+						}
+					}
+					p->AddHeader(h);
+					p->AddHeader(ppp);
+					m_DqPktSizePerQueue[ifIndex][qIndex] += p->GetSize();
+				}
 			}
 		}
 		else if (m_ecnEnabled){ //Other CC_Mode to process ECN
@@ -849,7 +968,13 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 			IntHeader *ih = (IntHeader*)&buf[PppHeader::GetStaticSize() + 20 + 8 + 6]; // ppp, ip, udp, SeqTs, INT
 			Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 			if (m_ccMode == 3){ // HPCC
-				ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex], dev->GetQueue()->GetNBytes(qIndex), dev->GetDataRate().GetBitRate());
+				if(m_hpccMode == 0)
+					ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex], dev->GetQueue()->GetNBytes(qIndex), dev->GetDataRate().GetBitRate());
+				else if(m_hpccMode ==1){
+					uint64_t linkCapacity = dev->GetDataRate().GetBitRate() * dev->GetQueue()->GetLinkRatio(qIndex);
+					ih->PushHop(Simulator::Now().GetTimeStep(), dev->GetQueue()->GetNBytesTX(qIndex), dev->GetQueue()->GetNBytes(qIndex), linkCapacity);
+				}
+
 			}else if (m_ccMode == 10){ // HPCC-PINT
 				uint64_t t = Simulator::Now().GetTimeStep();
 				uint64_t dt = t - m_lastPktTs[ifIndex];

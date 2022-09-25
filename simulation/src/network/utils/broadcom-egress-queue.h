@@ -42,6 +42,7 @@ namespace ns3 {
 		Ptr<Packet> DequeueWRR(bool paused[]);
 		Ptr<Packet> DequeueSP(bool paused[]);
 		uint32_t GetNBytes(uint32_t qIndex) const;
+		uint32_t GetNBytesTX(uint32_t qIndex) const;
 		uint32_t GetNBytesTotal() const;
 		uint32_t GetPhantomNBytes(uint32_t qIndex) const;
 		uint32_t GetPhantomNBytesTotal() const;
@@ -56,6 +57,13 @@ namespace ns3 {
 		uint32_t weight_max = 1;
 		uint32_t queue_weight[fCnt];
 		void SetQueueWeight(uint32_t qIndex, uint32_t weight);
+		uint32_t GetQueueWeight(uint32_t qIndex);
+		/**
+		 * LinkRatio: weight of queue / 
+		 * (sum of weight of queues that have packets in them) 
+		 * 
+		 */
+		double GetLinkRatio(uint32_t qIndex);
 
 	private:
 		bool DoEnqueue(Ptr<Packet> p, uint32_t qIndex);
@@ -67,6 +75,7 @@ namespace ns3 {
 		virtual Ptr<Packet> DoDequeue(void);
 		virtual Ptr<const Packet> DoPeek(void) const;
 		double m_maxBytes; //total bytes limit
+		uint64_t m_bytesQueueTX[fCnt];
 		uint32_t m_bytesInQueue[fCnt];
 		uint32_t m_bytesInQueueTotal;
 		uint32_t m_bytesInPhantomQueue[fCnt];

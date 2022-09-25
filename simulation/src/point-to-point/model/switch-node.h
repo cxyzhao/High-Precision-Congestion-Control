@@ -30,6 +30,7 @@ class SwitchNode : public Node{
 	// Record to calculate dequeue rate
 	uint64_t m_lastUpdateDqRateTs[pCnt]; // ns
 	uint64_t m_DqPktSize[pCnt]; // packet Bytes dequeued since last update
+	uint64_t m_DqPktSizePerQueue[pCnt][qCnt]; // packet Bytes dequeued since last update
 
 	// Record to calculate queue build-up rate
 	uint64_t m_lastUpdateQBuildRateTs[pCnt][qCnt]; // ns
@@ -40,6 +41,7 @@ class SwitchNode : public Node{
 protected:
 	bool m_ecnEnabled;
 	uint32_t m_ccMode;
+	uint32_t m_hpccMode;
 	uint64_t m_maxRtt;
 	double abc_dt;
 	double abc_delta;
@@ -51,6 +53,7 @@ protected:
 	int abc_markmode = 1;
 
 	double abc_token[pCnt];
+	double abc_token_perqueue[pCnt][qCnt];
 
 	double avg_qlen = 0; // Use to calculate ewma of qlen
 

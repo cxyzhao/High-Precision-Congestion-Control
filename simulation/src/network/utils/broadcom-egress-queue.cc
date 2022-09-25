@@ -62,6 +62,7 @@ namespace ns3 {
 		for (uint32_t i = 0; i < fCnt; i++)
 		{
 			m_bytesInQueue[i] = 0;
+			m_bytesQueueTX[i] = 0;
 			m_bytesInPhantomQueue[i] = 0;
 			m_queues.push_back(CreateObject<DropTailQueue>());
 			//Default is round robin
@@ -84,6 +85,7 @@ namespace ns3 {
 			m_queues[qIndex]->Enqueue(p);
 			m_bytesInQueueTotal += p->GetSize();
 			m_bytesInQueue[qIndex] += p->GetSize();
+			m_bytesQueueTX[qIndex] += p->GetSize();
 		}
 		else
 		{
@@ -196,6 +198,27 @@ namespace ns3 {
 		if(weight > weight_max)
 			weight_max = weight;
 		return;
+	}
+
+	uint32_t BEgressQueue::GetQueueWeight(uint32_t qIndex){
+		return queue_weight[qIndex];
+	}
+
+	double BEgressQueue::GetLinkRatio(uint32_t qIndex){
+		double currentQueueWeight = 0.0;
+		if(m_bytesInQueue[qIndex] != 0)
+			currentQueueWeight = queue_weight[qIndex];
+		
+		double busyQueueWeightTotal = 0.0;
+		for (uint32_t i = 0; i < fCnt; i++)
+			if(m_bytesInQueue[i] != 0)
+				busyQueueWeightTotal += queue_weight[i];
+		
+		// If all queues are empty, current queue can take the whole link capacity
+		if(busyQueueWeightTotal == 0.0)
+			return 1;
+		else
+			return currentQueueWeight / busyQueueWeightTotal;
 	}
 
 	Ptr<Packet>
@@ -384,6 +407,12 @@ namespace ns3 {
 		BEgressQueue::GetNBytes(uint32_t qIndex) const
 	{
 		return m_bytesInQueue[qIndex];
+	}
+
+	uint32_t
+		BEgressQueue::GetNBytesTX(uint32_t qIndex) const
+	{
+		return m_bytesQueueTX[qIndex];
 	}
 
 

@@ -60,12 +60,12 @@ BUFFER_SIZE {buffer_size}
 QLEN_MON_FILE mix/qlen_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 QLEN_MON_START 2000000000
 QLEN_MON_END 3000000000
-QLEN_DUMP_INTERVAL 1000
+QLEN_DUMP_INTERVAL 1000000
 
 LINK_MON_FILE mix/link_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 LINK_MON_START 2000000000
 LINK_MON_END 3000000000
-LINK_DUMP_INTERVAL 1000
+LINK_DUMP_INTERVAL 1000000
 
 OUTFLOW_MON_FILE mix/outflow_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 OUTFLOW_MON_START 2000000000
@@ -85,11 +85,13 @@ HEADER_DUMP_INTERVAL 1000000
 FLOWBW_MON_FILE mix/flowbw_{topo}_{trace}_ackHigh{ack_prio}_schedule{schedule}_{cc}{failure}.txt
 FLOWBW_MON_START 2000000000
 FLOWBW_MON_END 3000000000
-FLOWBW_DUMP_INTERVAL 1000
+FLOWBW_DUMP_INTERVAL 1000000
 
 SWITCH_SCHEDULING_MODE {schedule}
 
-QUEUE_WEIGHT 2 1 10 3 5
+QUEUE_WEIGHT 2 1 8 3 2
+
+HPCC_MODE {hpcc_mode}
 """
 
 abc_config_template = """
@@ -129,6 +131,7 @@ if __name__ == "__main__":
 	parser.add_argument('--abc_markmode', dest='abc_markmode', action='store', type=int, default=1, help="ABC mode to mark brake 1vanilla/2piecewise/3wred")
 	parser.add_argument('--abc_brake_lastrtt', dest='abc_brake_lastrtt', action='store', type=int, default=0, help="ABC to brake packets of last rtt")
 	parser.add_argument('--schedule', dest='schedule', action='store', type=int, default=0, help="Switch Scheduling algorithm (0-roundrobin, 1-strictpriority)")
+	parser.add_argument('--hpcc_mode', dest='hpcc_mode', action='store', type=int, default=0, help="hpcc_mode (0: per port, 1: per queue)")
 	
 	args = parser.parse_args()
 
@@ -157,6 +160,7 @@ if __name__ == "__main__":
 	abc_markmode = args.abc_markmode
 	abc_brake_lastrtt = args.abc_brake_lastrtt
 	schedule=args.schedule
+	hpcc_mode = args.hpcc_mode
 
 	failure = ''
 	if args.down != '0 0 0':
@@ -172,13 +176,13 @@ if __name__ == "__main__":
 		hai = 50 * bw /25
 
 		if args.cc == "dcqcn":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 		elif args.cc == "dcqcn_paper":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 		elif args.cc == "dcqcn_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 		elif args.cc == "dcqcn_paper_vwin":
-			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+			config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=1, t_alpha=50, t_dec=50, t_inc=55, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 	elif args.cc == "abc":
 		#cc_mode = 9
 		ai = 5 * bw / 25
@@ -227,6 +231,7 @@ if __name__ == "__main__":
 			'enable_tr': enable_tr, 
 			'rate_bound': abc_ratebound, 
 			'schedule': schedule,
+			'hpcc_mode' : hpcc_mode,
 		}
 		base_config = config_template.format(**base_config_dict)
 		
@@ -254,8 +259,9 @@ if __name__ == "__main__":
 			cc += "mi%d"%mi
 		if args.hpai > 0:
 			cc += "ai%d"%ai
+		cc += "mode%d"%hpcc_mode
 		config_name = "mix/config_%s_%s_ackHigh%d_schedule%d_%s%s.txt"%(topo, trace, ack_highprio, schedule, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule,  hpcc_mode=hpcc_mode)
 	elif args.cc == "dctcp":
 		ai = 10 # ai is useless for dctcp
 		hai = ai  # also useless
@@ -263,15 +269,15 @@ if __name__ == "__main__":
 		kmax_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
 		kmin_map = "3 %d %d %d %d %d %d"%(bw*1000000000, 30*bw/10, bw*2*1000000000, 30*bw*2/10, bw*4*1000000000, 30*bw*4/10)
 		pmax_map = "3 %d %.2f %d %.2f %d %.2f"%(bw*1000000000, 1.0, bw*2*1000000000, 1.0, bw*4*1000000000, 1.0)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 	elif args.cc == "timely":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 	elif args.cc == "timely_vwin":
 		ai = 10 * bw / 10;
 		hai = 50 * bw / 10;
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 	elif args.cc == "hpccPint":
 		ai = 10 * bw / 25;
 		if args.hpai > 0:
@@ -286,7 +292,7 @@ if __name__ == "__main__":
 		cc += "log%.3f"%pint_log_base
 		cc += "p%.3f"%pint_prob
 		config_name = "mix/config_%s_%s_ackHigh%d_schedule%d_%s%s.txt"%(topo, trace, ack_highprio, schedule, cc, failure)
-		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule)
+		config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=10, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=ack_highprio, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr, rate_bound=1, schedule=schedule, hpcc_mode=hpcc_mode)
 	else:
 		print "unknown cc:", args.cc
 		sys.exit(1)
